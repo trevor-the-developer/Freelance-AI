@@ -62,3 +62,109 @@ dotnet --version
 docker --version
 ollama --version
 ```
+
+### Step 2: Project Setup
+
+```bash
+# Create project directory
+mkdir freelance-ai && cd freelance-ai
+
+# Run automated setup
+curl -fsSL https://raw.githubusercontent.com/your-repo/freelance-ai/main/scripts/debian-setup.sh | bash
+```
+
+Or manual setup:
+
+```bash
+# Create project structure
+mkdir -p {src/{FreelanceAI.Core,FreelanceAI.ApiRouter,FreelanceAI.TerminalAssistant,FreelanceAI.CodeService,FreelanceAI.ProjectManager,FreelanceAI.WebApi},docker,configs/{guardrails,project-templates},scripts,shared,tests,generated}
+
+# Create .NET solution
+dotnet new sln -n FreelanceAI
+
+# Create projects
+dotnet new classlib -n FreelanceAI.Core -o src/FreelanceAI.Core
+dotnet new classlib -n FreelanceAI.ApiRouter -o src/FreelanceAI.ApiRouter
+dotnet new classlib -n FreelanceAI.TerminalAssistant -o src/FreelanceAI.TerminalAssistant
+dotnet new classlib -n FreelanceAI.CodeService -o src/FreelanceAI.CodeService
+dotnet new classlib -n FreelanceAI.ProjectManager -o src/FreelanceAI.ProjectManager
+dotnet new webapi -n FreelanceAI.WebApi -o src/FreelanceAI.WebApi
+
+# Add projects to solution
+dotnet sln add src/FreelanceAI.Core
+dotnet sln add src/FreelanceAI.ApiRouter
+dotnet sln add src/FreelanceAI.TerminalAssistant
+dotnet sln add src/FreelanceAI.CodeService
+dotnet sln add src/FreelanceAI.ProjectManager
+dotnet sln add src/FreelanceAI.WebApi
+
+# Set up project references
+dotnet add src/FreelanceAI.WebApi reference src/FreelanceAI.Core
+dotnet add src/FreelanceAI.WebApi reference src/FreelanceAI.ApiRouter
+dotnet add src/FreelanceAI.WebApi reference src/FreelanceAI.TerminalAssistant
+dotnet add src/FreelanceAI.WebApi reference src/FreelanceAI.CodeService
+dotnet add src/FreelanceAI.WebApi reference src/FreelanceAI.ProjectManager
+
+dotnet add src/FreelanceAI.ApiRouter reference src/FreelanceAI.Core
+dotnet add src/FreelanceAI.TerminalAssistant reference src/FreelanceAI.Core
+dotnet add src/FreelanceAI.CodeService reference src/FreelanceAI.Core
+dotnet add src/FreelanceAI.ProjectManager reference src/FreelanceAI.Core
+
+# Add NuGet packages
+dotnet add src/FreelanceAI.WebApi package Microsoft.AspNetCore.OpenApi
+dotnet add src/FreelanceAI.WebApi package Swashbuckle.AspNetCore
+dotnet add src/FreelanceAI.WebApi package StackExchange.Redis
+dotnet add src/FreelanceAI.ApiRouter package StackExchange.Redis
+dotnet add src/FreelanceAI.ApiRouter package System.Text.Json
+
+# Clean up default files
+rm src/FreelanceAI.Core/Class1.cs
+rm src/FreelanceAI.ApiRouter/Class1.cs
+rm src/FreelanceAI.TerminalAssistant/Class1.cs
+rm src/FreelanceAI.CodeService/Class1.cs
+rm src/FreelanceAI.ProjectManager/Class1.cs
+rm src/FreelanceAI.WebApi/WeatherForecast.cs
+rm src/FreelanceAI.WebApi/Controllers/WeatherForecastController.cs
+```
+
+### Step 3: Environment Configuration
+
+```bash
+# Create environment file
+cat > .env << 'EOF'
+# Free API Keys (sign up links in comments)
+GROQ_API_KEY=your_groq_key_here                    # https://console.groq.com
+TOGETHER_API_KEY=your_together_key_here            # https://together.ai  
+HUGGINGFACE_API_KEY=your_huggingface_key_here      # https://huggingface.co
+
+# Configuration
+DAILY_BUDGET=5.00
+REDIS_CONNECTION=localhost:6379
+OLLAMA_URL=http://localhost:11434
+
+# Logging
+LOG_LEVEL=Information
+ASPNETCORE_ENVIRONMENT=Development
+EOF
+
+echo "📝 Created .env file - update with your API keys"
+```
+
+## Core Architecture
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Terminal      │    │   Code Service   │    │  Project        │
+│   Assistant     │◄──►│   (C#/JS/Web)    │◄──►│  Manager        │
+│                 │    │                  │    │  (Guardrails)   │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                        │                       │
+         └────────────────────────┼───────────────────────┘
+                                  │
+                    ┌─────────────▼──────────────┐
+                    │     AI API Router          │
+                    │  (Groq → Together → HF)    │
+                    └────────────────────────────┘
+```
+
+## TODO add more sections (when I finish break-fixing my stuff).
