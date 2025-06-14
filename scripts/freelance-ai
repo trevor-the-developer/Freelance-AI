@@ -1,0 +1,66 @@
+#!/bin/bash
+# scripts/freelance-ai
+# Main CLI script for FreelanceAI
+
+# Get the directory of the script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the function library
+if [ -f "$SCRIPT_DIR/lib/freelance-ai-functions.sh" ]; then
+    source "$SCRIPT_DIR/lib/freelance-ai-functions.sh"
+else
+    echo "❌ Function library not found at $SCRIPT_DIR/lib/freelance-ai-functions.sh"
+    exit 1
+fi
+
+# Parse command line arguments
+COMMAND=$1
+INPUT=$2
+LANGUAGE=${3:-csharp}
+TYPE=${4:-general}
+
+# Check dependencies on first run
+check_dependencies || exit 1
+
+# Main command routing
+case $COMMAND in
+    "explain")
+        ai_explain "$INPUT"
+        ;;
+
+    "suggest")
+        ai_suggest "$INPUT"
+        ;;
+
+    "debug")
+        ai_debug "$INPUT" "$4"  # $4 is context parameter
+        ;;
+
+    "generate")
+        ai_generate "$INPUT" "$LANGUAGE" "$TYPE"
+        ;;
+
+    "review")
+        ai_review "$INPUT" "$LANGUAGE"
+        ;;
+
+    "optimize")
+        ai_optimize "$INPUT" "$LANGUAGE"
+        ;;
+
+    "test")
+        ai_test "$INPUT" "$LANGUAGE"
+        ;;
+
+    "status")
+        check_service_status
+        ;;
+
+    "chat")
+        ai_chat
+        ;;
+
+    *)
+        show_help
+        ;;
+esac

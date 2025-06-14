@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  freelance-ai-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: freelance-ai-router
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # AI Provider Configuration
+      - Groq__ApiKey=${GROQ_API_KEY}
+      - Ollama__BaseUrl=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      # Router Configuration
+      - Router__DailyBudget=${DAILY_BUDGET:-10.0}
+      - Router__MaxRetries=${MAX_RETRIES:-3}
+      - Router__HealthCheckInterval=${HEALTH_CHECK_INTERVAL:-00:05:00}
+      # Logging
+      - Logging__LogLevel__Default=${LOG_LEVEL:-Information}
+      - Logging__LogLevel__FreelanceAI=${LOG_LEVEL_APP:-Debug}
+    volumes:
+      - ./configs:/app/configs:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - freelance-ai-network
+
+  # Optional: Local Ollama service
+  # Uncomment if you want to run Ollama in Docker
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama-service
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   restart: unless-stopped
+  #   networks:
+  #     - freelance-ai-network
+  #   # GPU support (uncomment if you have NVIDIA GPU)
+  #   # deploy:
+  #   #   resources:
+  #   #     reservations:
+  #   #       devices:
+  #   #         - driver: nvidia
+  #   #           count: 1
+  #   #           capabilities: [gpu]
+
+networks:
+  freelance-ai-network:
+    driver: bridge
+
+# volumes:
+#   ollama-data:
+#     driver: local

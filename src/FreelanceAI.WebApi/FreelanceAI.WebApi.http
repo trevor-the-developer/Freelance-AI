@@ -1,0 +1,6 @@
+@FreelanceAI.WebApi_HostAddress = http://localhost:5101
+
+GET {{FreelanceAI.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
