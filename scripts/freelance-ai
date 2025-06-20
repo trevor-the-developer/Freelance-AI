@@ -22,7 +22,7 @@ TYPE=${4:-general}
 # Check dependencies on first run
 check_dependencies || exit 1
 
-# Main command routing
+# Main command routing (Thor ?)
 case $COMMAND in
     "explain")
         ai_explain "$INPUT"
