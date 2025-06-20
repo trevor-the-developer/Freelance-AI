@@ -300,6 +300,13 @@ curl http://localhost:5000/api/ai/spend
 
 ---
 
+### Use cases
+- Test creation
+- Test refactoring
+- DSL
+
+---
+
 ## 🔮 **Future Roadmap**
 
 ### **Phase 1: Foundation** ✅
