@@ -1,4 +1,4 @@
-using System.Linq; // Add this for LINQ methods
+using System.Linq;
 using FreelanceAI.Core.Configuration;
 using FreelanceAI.Core.Interfaces;
 using FreelanceAI.Core.Models;
