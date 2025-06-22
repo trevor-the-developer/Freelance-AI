@@ -54,6 +54,22 @@ chmod +x scripts/freelance-ai
 ./scripts/freelance-ai code "create a simple REST API controller"
 ```
 
+### **4. Client Test**
+- clone the following repo: [warp-terminal-clone](https://github.com/trevor-the-developer/warp-terminal-clone)
+- OR use the bootstrapper to create a fresh local repo: [warp-terminal-clone-bootstrap](https://github.com/trevor-the-developer/warp-terminal-clone-bootstrap)
+- Run the following command in the Wurp (Warp Terminal Clone) project folder
+    - `scripts/wurp-terminal check` to check dependencies
+    - `./scripts/wurp-terminal install` to perform a full installation (build, publish, integrate)
+    - `./scripts/wurp-terminal` to execute the terminal client
+    - `./scripts/wurp-terminal status` show installation status
+    - `wurp-terminal` use the installed binary
+      
+- Example commands
+    - `ai explain "docker ps"        # Explain what a command does`
+    - `ai suggest "deploy app"       # Get command suggestions for tasks`
+    - `ai debug "permission denied"  # Get debugging help for errors`
+ 
+- Many more examples in the [README.md](https://github.com/trevor-the-developer/warp-terminal-clone-bootstrap/blob/main/README.md) of the repository!
 ---
 
 ## 📋 **Features**
