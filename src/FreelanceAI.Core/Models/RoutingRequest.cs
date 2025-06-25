@@ -12,10 +12,7 @@ public record RoutingResult
         TotalAttempts++;
         TotalCost += attempt.Cost;
         ResponseEntries.Add(attempt.ResponseEntry);
-        
-        if (!attempt.IsSuccess)
-        {
-            FailedProviders.Add(attempt.ProviderName);
-        }
+
+        if (!attempt.IsSuccess) FailedProviders.Add(attempt.ProviderName);
     }
 }

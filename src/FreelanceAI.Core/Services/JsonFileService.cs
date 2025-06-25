@@ -1,8 +1,10 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using System.Text.Json;
 using FreelanceAI.Core.Interfaces;
 using FreelanceAI.Core.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace FreelanceAI.Core.Services;
 
 public class JsonFileService : IJsonFileService
 {
@@ -15,7 +17,7 @@ public class JsonFileService : IJsonFileService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _semaphore = new SemaphoreSlim(1, 1);
-        
+
         // Ensure directories exist
         EnsureDirectoriesExist();
     }
@@ -58,9 +60,9 @@ public class JsonFileService : IJsonFileService
             }
 
             await RolloverIfNeededAsync();
-            
+
             var jsonContent = await File.ReadAllTextAsync(_options.FilePath);
-            
+
             if (string.IsNullOrWhiteSpace(jsonContent) || jsonContent.Trim() == "{}")
             {
                 _logger.LogDebug("File is empty or contains empty JSON object: {FilePath}", _options.FilePath);
@@ -102,8 +104,8 @@ public class JsonFileService : IJsonFileService
 
             var jsonContent = JsonSerializer.Serialize(data, _options.JsonOptions);
             await File.WriteAllTextAsync(_options.FilePath, jsonContent);
-            
-            _logger.LogDebug("Successfully wrote data to: {FilePath}, Size: {Size} bytes", 
+
+            _logger.LogDebug("Successfully wrote data to: {FilePath}, Size: {Size} bytes",
                 _options.FilePath, jsonContent.Length);
         }
         catch (JsonException ex)
@@ -154,7 +156,7 @@ public class JsonFileService : IJsonFileService
         if (fileAge > _options.MaxFileAgeValue)
         {
             shouldRollover = true;
-            reason = string.IsNullOrEmpty(reason) 
+            reason = string.IsNullOrEmpty(reason)
                 ? $"age exceeded ({fileAge.TotalDays:F1} days > {_options.MaxFileAgeValue.TotalDays} days)"
                 : $"{reason} and age exceeded ({fileAge.TotalDays:F1} days > {_options.MaxFileAgeValue.TotalDays} days)";
         }
@@ -198,7 +200,7 @@ public class JsonFileService : IJsonFileService
         try
         {
             File.Move(_options.FilePath, rolledOverPath);
-            _logger.LogInformation("File rolled over from {OriginalPath} to {RolledOverPath}", 
+            _logger.LogInformation("File rolled over from {OriginalPath} to {RolledOverPath}",
                 _options.FilePath, rolledOverPath);
 
             // Create a new empty file
@@ -206,7 +208,7 @@ public class JsonFileService : IJsonFileService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during file rollover from {OriginalPath} to {RolledOverPath}", 
+            _logger.LogError(ex, "Error during file rollover from {OriginalPath} to {RolledOverPath}",
                 _options.FilePath, rolledOverPath);
             throw;
         }

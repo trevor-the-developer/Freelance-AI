@@ -1,5 +1,3 @@
-using System.Linq;
-using System.Text.Json;
 using FreelanceAI.Core.Configuration;
 using FreelanceAI.Core.Interfaces;
 using FreelanceAI.Core.Models;
@@ -10,26 +8,26 @@ namespace FreelanceAI.ApiRouter;
 
 public class SmartApiRouter : ISmartApiRouter
 {
+    private readonly RouterConfiguration _config;
+    private readonly IJsonFileService _jsonFileService;
+    private readonly JsonFileServiceOptions _jsonFileServiceOptions;
     private readonly ILogger<SmartApiRouter> _logger;
     private readonly List<IAIProvider> _providers;
     private readonly IUsageTracker _usageTracker;
-    private readonly RouterConfiguration _config;
-    private readonly JsonFileServiceOptions _jsonFileServiceOptions;
-    private readonly IJsonFileService _jsonFileService;
 
     public SmartApiRouter(
         ILogger<SmartApiRouter> logger,
         IEnumerable<IAIProvider> providers,
         IUsageTracker usageTracker,
         IOptions<RouterConfiguration> config,
-        JsonFileServiceOptions jsonFileServiceOptions,
+        IOptions<JsonFileServiceOptions> jsonFileServiceOptions,
         IJsonFileService jsonFileService)
     {
         _logger = logger;
         _providers = providers.OrderBy(p => p.Priority).ToList();
         _usageTracker = usageTracker;
         _config = config.Value;
-        _jsonFileServiceOptions = jsonFileServiceOptions;
+        _jsonFileServiceOptions = jsonFileServiceOptions.Value; // Updated here
         _jsonFileService = jsonFileService;
     }
 
@@ -37,7 +35,7 @@ public class SmartApiRouter : ISmartApiRouter
     {
         var context = new RequestContext(prompt, options, DateTime.UtcNow);
         var routingResult = new RoutingResult();
-        
+
         foreach (var provider in _providers)
         {
             if (!await IsProviderViable(provider, context))
@@ -62,7 +60,6 @@ public class SmartApiRouter : ISmartApiRouter
         var statusList = new List<ProviderStatus>();
 
         foreach (var provider in _providers)
-        {
             try
             {
                 var isHealthy = await provider.CheckHealthAsync();
@@ -70,25 +67,24 @@ public class SmartApiRouter : ISmartApiRouter
                 var limit = GetProviderLimit(provider.Name);
 
                 statusList.Add(new ProviderStatus(
-                    Name: provider.Name,
-                    IsHealthy: isHealthy,
-                    RequestsToday: usage.RequestCount,
-                    CostToday: usage.TotalCost,
-                    RemainingRequests: Math.Max(0, limit - usage.RequestCount)
+                    provider.Name,
+                    isHealthy,
+                    usage.RequestCount,
+                    usage.TotalCost,
+                    Math.Max(0, limit - usage.RequestCount)
                 ));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting status for provider {Provider}", provider.Name);
                 statusList.Add(new ProviderStatus(
-                    Name: provider.Name,
-                    IsHealthy: false,
-                    RequestsToday: 0,
-                    CostToday: 0,
-                    RemainingRequests: 0
+                    provider.Name,
+                    false,
+                    0,
+                    0,
+                    0
                 ));
             }
-        }
 
         return statusList;
     }
@@ -98,7 +94,6 @@ public class SmartApiRouter : ISmartApiRouter
         decimal totalSpend = 0;
 
         foreach (var provider in _providers)
-        {
             try
             {
                 var usage = await _usageTracker.GetTodayUsageAsync(provider.Name);
@@ -108,31 +103,27 @@ public class SmartApiRouter : ISmartApiRouter
             {
                 _logger.LogError(ex, "Error getting spend for provider {Provider}", provider.Name);
             }
-        }
 
         return totalSpend;
     }
 
-    public string GetProviderLimitType(string providerName)
+    private string GetProviderLimitType(string providerName)
     {
         var normalizedName = providerName.ToLowerInvariant();
-        
-        if (_config.ProviderLimits.TryGetValue(normalizedName, out var limitConfig))
-        {
-            return limitConfig.LimitType;
-        }
+
+        if (_config.ProviderLimits.TryGetValue(normalizedName, out var limitConfig)) return limitConfig.LimitType;
 
         return "Day"; // Default fallback
     }
 
     private async Task<ProviderAttemptResult> AttemptProviderRequest(
-        IAIProvider provider, 
-        string prompt, 
-        AIRequestOptions options, 
+        IAIProvider provider,
+        string prompt,
+        AIRequestOptions options,
         RequestContext context)
     {
         _logger.LogInformation("🚀 Routing request to {Provider}", provider.Name);
-        
+
         try
         {
             var response = await provider.GenerateAsync(prompt, options);
@@ -143,69 +134,69 @@ public class SmartApiRouter : ISmartApiRouter
             await _usageTracker.RecordUsageAsync(provider.Name, tokenCount, estimatedCost);
 
             var success = new AISuccess(
-                Content: response,
-                Provider: provider.Name,
-                RequestCost: estimatedCost,
-                Duration: duration
+                response,
+                provider.Name,
+                estimatedCost,
+                duration
             );
 
-            var entry = CreateResponseEntry(prompt, options, provider.Name, success: true, 
-                content: response, cost: estimatedCost, duration: duration.TotalMilliseconds);
+            var entry = CreateResponseEntry(prompt, options, provider.Name, true,
+                response, cost: estimatedCost, duration: duration.TotalMilliseconds, error: string.Empty);
 
             return new ProviderAttemptResult(true, success, entry, provider.Name, estimatedCost);
         }
         catch (Exception ex)
         {
             _logger.LogError("Provider {Provider} failed: {Error}", provider.Name, ex.Message);
-            
+
             var duration = DateTime.UtcNow - context.StartTime;
             var failure = new AIFailure(
-                Error: ex.Message,
-                FailedProviders: [provider.Name],
-                TotalAttemptedCost: 0,
-                Duration: duration
+                ex.Message,
+                [provider.Name],
+                0,
+                duration
             );
 
-            var entry = CreateResponseEntry(prompt, options, provider.Name, success: false, 
-                error: ex.Message, duration: duration.TotalMilliseconds);
+            var entry = CreateResponseEntry(prompt, options, provider.Name, false,
+                error: ex.Message, duration: duration.TotalMilliseconds, content: string.Empty);
 
             return new ProviderAttemptResult(false, failure, entry, provider.Name, 0);
         }
     }
 
-    private AIResponseEntry CreateResponseEntry(
-        string prompt, 
-        AIRequestOptions options, 
-        string providerName, 
-        bool success, 
-        string content = null, 
-        string error = null, 
-        decimal cost = 0, 
+    private static AIResponseEntry CreateResponseEntry(
+        string prompt,
+        AIRequestOptions options,
+        string providerName,
+        bool success,
+        string content,
+        string error,
+        decimal cost = 0,
         double duration = 0)
     {
         return new AIResponseEntry(
-            Id: Guid.NewGuid(),
-            Timestamp: DateTime.UtcNow,
-            Prompt: prompt,
-            MaxTokens: options.MaxTokens,
-            Temperature: options.Temperature,
-            Model: options.Model,
-            Success: success,
-            Provider: providerName,
-            Content: content,
-            Error: error,
-            Cost: cost,
-            Duration: duration
+            Guid.NewGuid(),
+            DateTime.UtcNow,
+            prompt,
+            options.MaxTokens,
+            options.Temperature,
+            options.Model,
+            success,
+            providerName,
+            content,
+            error,
+            cost,
+            duration
         );
     }
 
-    private AIFailure CreateFailureResponse(RoutingResult routingResult, RequestContext context)
+    private static AIFailure CreateFailureResponse(RoutingResult routingResult, RequestContext context)
     {
         return new AIFailure(
-            Error: "All AI providers exhausted or unavailable",
-            FailedProviders: routingResult.FailedProviders.ToArray(),
-            TotalAttemptedCost: routingResult.TotalCost,
-            Duration: DateTime.UtcNow - context.StartTime
+            "All AI providers exhausted or unavailable",
+            routingResult.FailedProviders.ToArray(),
+            routingResult.TotalCost,
+            DateTime.UtcNow - context.StartTime
         );
     }
 
@@ -241,11 +232,11 @@ public class SmartApiRouter : ISmartApiRouter
         // Check rate limits using time-aware usage
         var usage = await GetUsageForLimitType(provider.Name);
         var limit = GetProviderLimit(provider.Name);
-        
+
         if (usage.RequestCount >= limit)
         {
             var limitType = GetProviderLimitType(provider.Name);
-            _logger.LogDebug("Provider {Provider} hit {LimitType} rate limit: {Count}/{Limit}", 
+            _logger.LogDebug("Provider {Provider} hit {LimitType} rate limit: {Count}/{Limit}",
                 provider.Name, limitType, usage.RequestCount, limit);
             return false;
         }
@@ -254,7 +245,7 @@ public class SmartApiRouter : ISmartApiRouter
         var estimatedCost = EstimateCost(context.Prompt, GetProviderCostPerToken(provider.Name));
         if (usage.TotalCost + estimatedCost > _config.DailyBudget)
         {
-            _logger.LogDebug("Provider {Provider} would exceed daily budget: {Current} + {Estimated} > {Budget}", 
+            _logger.LogDebug("Provider {Provider} would exceed daily budget: {Current} + {Estimated} > {Budget}",
                 provider.Name, usage.TotalCost, estimatedCost, _config.DailyBudget);
             return false;
         }
@@ -265,18 +256,18 @@ public class SmartApiRouter : ISmartApiRouter
     private async Task<DailyUsage> GetUsageForLimitType(string providerName)
     {
         var limitType = GetProviderLimitType(providerName);
-        
+
         return limitType.ToLowerInvariant() switch
         {
             "hour" => await _usageTracker.GetTodayUsageAsync(providerName), // Fallback to daily for now
             "day" => await _usageTracker.GetTodayUsageAsync(providerName),
             "month" => await _usageTracker.GetTodayUsageAsync(providerName), // Fallback to daily for now
             "unlimited" => new DailyUsage(
-                Provider: providerName,
-                Date: DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
-                RequestCount: 0,
-                TokensUsed: 0,
-                TotalCost: 0m
+                providerName,
+                DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                0,
+                0,
+                0m
             ),
             _ => await _usageTracker.GetTodayUsageAsync(providerName)
         };
@@ -285,11 +276,8 @@ public class SmartApiRouter : ISmartApiRouter
     private int GetProviderLimit(string providerName)
     {
         var normalizedName = providerName.ToLowerInvariant();
-        
-        if (_config.ProviderLimits.TryGetValue(normalizedName, out var limitConfig))
-        {
-            return limitConfig.RequestLimit;
-        }
+
+        if (_config.ProviderLimits.TryGetValue(normalizedName, out var limitConfig)) return limitConfig.RequestLimit;
 
         _logger.LogWarning("No limit configuration found for provider {Provider}, defaulting to 0", providerName);
         return 0;
@@ -298,19 +286,21 @@ public class SmartApiRouter : ISmartApiRouter
     private decimal GetProviderCostPerToken(string providerName)
     {
         var normalizedName = providerName.ToLowerInvariant();
-        
-        if (_config.ProviderLimits.TryGetValue(normalizedName, out var limitConfig))
-        {
-            return limitConfig.CostPerToken;
-        }
+
+        if (_config.ProviderLimits.TryGetValue(normalizedName, out var limitConfig)) return limitConfig.CostPerToken;
 
         _logger.LogWarning("No cost configuration found for provider {Provider}, defaulting to 0", providerName);
         return 0.0m;
     }
 
-    private static int EstimateTokens(string text) => 
-        (int)Math.Ceiling(text.Length / 4.0); // Rough estimation
+    private static int EstimateTokens(string text)
+    {
+        return (int)Math.Ceiling(text.Length / 4.0);
+        // Rough estimation
+    }
 
-    private static decimal EstimateCost(string text, decimal costPerToken) =>
-        EstimateTokens(text) * costPerToken / 1000;
+    private static decimal EstimateCost(string text, decimal costPerToken)
+    {
+        return EstimateTokens(text) * costPerToken / 1000;
+    }
 }

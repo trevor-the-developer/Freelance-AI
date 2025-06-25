@@ -1,4 +1,4 @@
-using System.Linq;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FreelanceAI.Core.Constants;
@@ -11,15 +11,10 @@ namespace FreelanceAI.ApiRouter.Providers;
 
 public class OllamaProvider : IAIProvider
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<OllamaProvider> _logger;
     private readonly string _baseUrl;
     private readonly string _defaultModel;
-
-    public string Name => "Ollama";
-    public int Priority => 99; // Last resort (local fallback)
-    public decimal CostPerToken => 0.0m; // Completely free
-    public bool IsAvailable { get; private set; } = true;
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<OllamaProvider> _logger;
 
     public OllamaProvider(HttpClient httpClient, IConfiguration config, ILogger<OllamaProvider> logger)
     {
@@ -31,6 +26,11 @@ public class OllamaProvider : IAIProvider
         _httpClient.BaseAddress = new Uri(_baseUrl);
         _httpClient.Timeout = TimeSpan.FromMinutes(5); // Ollama can be slow for large models
     }
+
+    public string Name => "Ollama";
+    public int Priority => 99; // Last resort (local fallback)
+    public decimal CostPerToken => 0.0m; // Completely free
+    public bool IsAvailable { get; private set; } = true;
 
     public async Task<string> GenerateAsync(string prompt, AIRequestOptions options)
     {
@@ -59,11 +59,9 @@ public class OllamaProvider : IAIProvider
                     response.StatusCode, errorContent);
 
                 // Mark as unavailable for service-level errors
-                if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
-                    response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
-                {
+                if (response.StatusCode == HttpStatusCode.ServiceUnavailable ||
+                    response.StatusCode == HttpStatusCode.InternalServerError)
                     IsAvailable = false;
-                }
 
                 throw new HttpRequestException($"Ollama API error: {response.StatusCode} - {errorContent}");
             }
@@ -171,33 +169,30 @@ public class OllamaProvider : IAIProvider
             {
                 _logger.LogDebug("Available Ollama models:");
                 foreach (var model in result.Models)
-                {
-                    _logger.LogDebug("  - {ModelName} ({ModelSize})", model.Name ?? "Unknown", model.Size ?? "Unknown size");
-                }
+                    _logger.LogDebug("  - {ModelName} ({ModelSize})", model.Name ?? "Unknown",
+                        model.Size ?? "Unknown size");
 
                 // Check if our preferred model is available
                 var hasPreferredModel = result.Models.Any(m =>
                     m.Name != null && (m.Name.Contains("deepseek-coder") || m.Name.Contains("codellama")));
 
                 if (!hasPreferredModel)
-                {
                     _logger.LogWarning("Preferred coding models (deepseek-coder, codellama) not found. " +
-                                     "Consider running: ollama pull {DefaultModel}", _defaultModel);
-                }
+                                       "Consider running: ollama pull {DefaultModel}", _defaultModel);
 
                 // Check if the configured default model is available
                 var hasDefaultModel = result.Models.Any(m =>
                     m.Name != null && m.Name.Equals(_defaultModel, StringComparison.OrdinalIgnoreCase));
 
                 if (!hasDefaultModel)
-                {
                     _logger.LogWarning("Configured default model '{DefaultModel}' not found. " +
-                                     "Run 'ollama pull {DefaultModel}' to install it.", _defaultModel, _defaultModel);
-                }
+                                       "Run 'ollama pull {DefaultModel}' to install it.", _defaultModel, _defaultModel);
             }
             else
             {
-                _logger.LogWarning("No models found in Ollama. Run 'ollama pull {DefaultModel}' to install a coding model.", _defaultModel);
+                _logger.LogWarning(
+                    "No models found in Ollama. Run 'ollama pull {DefaultModel}' to install a coding model.",
+                    _defaultModel);
             }
 
             return IsAvailable;

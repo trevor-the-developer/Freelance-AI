@@ -8,12 +8,12 @@ namespace FreelanceAI.WebApi.Controllers;
 [Route("api/[controller]")]
 public class AIController : ControllerBase
 {
-    private readonly ISmartApiRouter _router;
-    private readonly ILogger<AIController> _logger;
     private readonly IJsonFileService _fileService;
+    private readonly ILogger<AIController> _logger;
+    private readonly ISmartApiRouter _router;
 
     public AIController(
-        ISmartApiRouter router, 
+        ISmartApiRouter router,
         ILogger<AIController> logger,
         IJsonFileService fileService)
     {
@@ -27,27 +27,25 @@ public class AIController : ControllerBase
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(request.Prompt))
-            {
-                return BadRequest("Prompt is required");
-            }
+            if (string.IsNullOrWhiteSpace(request.Prompt)) return BadRequest("Prompt is required");
 
             var options = BuildAIRequestOptions(request);
             var response = await _router.RouteRequestAsync(request.Prompt, options);
-            
+
             // Log the response to file
             await LogResponseToFile(request, response);
-            
+
             LogBasedOnResponseType(response);
-            
+
             return HandleResponseTypes(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error processing AI request");
-            return StatusCode(500, new { 
-                success = false, 
-                error = "Internal server error" 
+            return StatusCode(500, new
+            {
+                success = false,
+                error = "Internal server error"
             });
         }
     }
@@ -95,20 +93,20 @@ public class AIController : ControllerBase
             var status = isHealthy ? "Healthy" : "Unhealthy";
 
             return Ok(new HealthResponse(
-                Status: status,
-                HealthyProviders: healthyCount,
-                TotalProviders: totalProviders,
-                Timestamp: DateTime.UtcNow
+                status,
+                healthyCount,
+                totalProviders,
+                DateTime.UtcNow
             ));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Health check failed");
             return StatusCode(500, new HealthResponse(
-                Status: "Error",
-                HealthyProviders: 0,
-                TotalProviders: 0,
-                Timestamp: DateTime.UtcNow
+                "Error",
+                0,
+                0,
+                DateTime.UtcNow
             ));
         }
     }
@@ -145,16 +143,18 @@ public class AIController : ControllerBase
         }
     }
 
-    private ActionResult ServiceUnavailable(object value) =>
-        StatusCode(503, value);
-    
+    private ActionResult ServiceUnavailable(object value)
+    {
+        return StatusCode(503, value);
+    }
+
     private static AIRequestOptions BuildAIRequestOptions(GenerateRequest request)
     {
         var options = new AIRequestOptions(
-            MaxTokens: request.MaxTokens ?? 1000,
-            Temperature: request.Temperature ?? 0.7m,
-            Model: request.Model ?? "default",
-            StopSequences: request.StopSequences ?? new List<string>()
+            request.MaxTokens ?? 1000,
+            request.Temperature ?? 0.7m,
+            request.Model ?? "default",
+            request.StopSequences ?? new List<string>()
         );
         return options;
     }
@@ -164,7 +164,7 @@ public class AIController : ControllerBase
         switch (response)
         {
             case AISuccess success:
-                _logger.LogInformation("Generated response using {Provider} in {Duration}ms", 
+                _logger.LogInformation("Generated response using {Provider} in {Duration}ms",
                     success.Provider, success.Duration.TotalMilliseconds);
                 break;
             case AIFailure failure:
@@ -177,23 +177,26 @@ public class AIController : ControllerBase
     {
         return response switch
         {
-            AISuccess success => Ok(new {
+            AISuccess success => Ok(new
+            {
                 success = true,
                 content = success.Content,
                 provider = success.Provider,
                 cost = success.RequestCost,
                 duration = success.Duration.TotalMilliseconds
             }),
-            AIFailure failure => ServiceUnavailable(new {
+            AIFailure failure => ServiceUnavailable(new
+            {
                 success = false,
                 error = failure.Error,
                 failedProviders = failure.FailedProviders,
                 totalAttemptedCost = failure.TotalAttemptedCost,
                 duration = failure.Duration.TotalMilliseconds
             }),
-            _ => StatusCode(500, new { 
-                success = false, 
-                error = "Unknown response type" 
+            _ => StatusCode(500, new
+            {
+                success = false,
+                error = "Unknown response type"
             })
         };
     }
@@ -207,18 +210,18 @@ public class AIController : ControllerBase
 
             // Add new entry
             var entry = new AIResponseEntry(
-                Id: Guid.NewGuid(),
-                Timestamp: DateTime.UtcNow,
-                Prompt: request.Prompt,
-                MaxTokens: request.MaxTokens,
-                Temperature: request.Temperature,
-                Model: request.Model,
-                Success: response is AISuccess,
-                Provider: response is AISuccess success ? success.Provider : null,
-                Content: response is AISuccess successContent ? successContent.Content : null,
-                Error: response is AIFailure failure ? failure.Error : null,
-                Cost: response is AISuccess successCost ? successCost.RequestCost : 0,
-                Duration: response.Duration.TotalMilliseconds
+                Guid.NewGuid(),
+                DateTime.UtcNow,
+                request.Prompt,
+                request.MaxTokens,
+                request.Temperature,
+                request.Model,
+                response is AISuccess,
+                response is AISuccess success ? success.Provider : null,
+                response is AISuccess successContent ? successContent.Content : null,
+                response is AIFailure failure ? failure.Error : null,
+                response is AISuccess successCost ? successCost.RequestCost : 0,
+                response.Duration.TotalMilliseconds
             );
 
             // Create new history with updated values

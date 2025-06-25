@@ -8,5 +8,7 @@ public record AIResponseHistory(
 )
 {
     // Parameterless constructor for JSON deserialization
-    public AIResponseHistory() : this(new List<AIResponseEntry>(), DateTime.UtcNow, 0, 0m) { }
+    public AIResponseHistory() : this(new List<AIResponseEntry>(), DateTime.UtcNow, 0, 0m)
+    {
+    }
 }

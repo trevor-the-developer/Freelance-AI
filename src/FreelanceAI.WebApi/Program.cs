@@ -19,7 +19,7 @@ builder.Services.Configure<RouterConfiguration>(
     builder.Configuration.GetSection("Router"));
 builder.Services.Configure<JsonFileServiceOptions>(
     builder.Configuration.GetSection("JsonFileServiceOptions"));
-builder.Services.AddSingleton<IValidateOptions<JsonFileServiceOptions>, 
+builder.Services.AddSingleton<IValidateOptions<JsonFileServiceOptions>,
     JsonFileServiceOptionsValidator>();
 
 // Register the JsonFileService

@@ -21,7 +21,7 @@ public class JsonFileServiceOptionsValidator : IValidateOptions<JsonFileServiceO
         if (string.IsNullOrWhiteSpace(options.RolloverDirectory))
             failures.Add("RolloverDirectory cannot be null or empty");
 
-        return failures.Count > 0 
+        return failures.Count > 0
             ? ValidateOptionsResult.Fail(failures)
             : ValidateOptionsResult.Success;
     }

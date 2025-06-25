@@ -9,8 +9,8 @@ namespace FreelanceAI.Core.Services;
 
 public class UsageTracker : IUsageTracker
 {
-    private readonly ILogger<UsageTracker> _logger;
     private readonly RouterConfiguration _config;
+    private readonly ILogger<UsageTracker> _logger;
     private readonly ConcurrentDictionary<string, List<UsageRecord>> _usageData;
 
     public UsageTracker(ILogger<UsageTracker> logger, IOptions<RouterConfiguration> config)
@@ -23,22 +23,22 @@ public class UsageTracker : IUsageTracker
     public async Task RecordUsageAsync(string provider, int tokens, decimal cost)
     {
         var usage = new UsageRecord(
-            Timestamp: DateTime.UtcNow,
-            TokenCount: tokens,
-            Cost: cost
+            DateTime.UtcNow,
+            tokens,
+            cost
         );
 
         var key = GetDailyKey(provider, DateTime.UtcNow);
-        
-        _usageData.AddOrUpdate(key, 
+
+        _usageData.AddOrUpdate(key,
             new List<UsageRecord> { usage },
-            (_, existing) => 
+            (_, existing) =>
             {
                 existing.Add(usage);
                 return existing;
             });
 
-        _logger.LogDebug("Recorded usage for {Provider}: {Tokens} tokens, ${Cost:F4}", 
+        _logger.LogDebug("Recorded usage for {Provider}: {Tokens} tokens, ${Cost:F4}",
             provider, tokens, cost);
 
         await Task.CompletedTask;
@@ -47,27 +47,25 @@ public class UsageTracker : IUsageTracker
     public async Task<DailyUsage> GetTodayUsageAsync(string provider)
     {
         var key = GetDailyKey(provider, DateTime.UtcNow);
-        
+
         if (!_usageData.TryGetValue(key, out var records) || !records.Any())
-        {
             return new DailyUsage(
-                Provider: provider,
-                Date: DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
-                RequestCount: 0,
-                TokensUsed: 0,
-                TotalCost: 0m
+                provider,
+                DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                0,
+                0,
+                0m
             );
-        }
 
         var usage = new DailyUsage(
-            Provider: provider,
-            Date: DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
-            RequestCount: records.Count,
-            TokensUsed: records.Sum(r => r.TokenCount),
-            TotalCost: records.Sum(r => r.Cost)
+            provider,
+            DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+            records.Count,
+            records.Sum(r => r.TokenCount),
+            records.Sum(r => r.Cost)
         );
 
-        _logger.LogDebug("Retrieved usage for {Provider}: {Requests} requests, ${Cost:F4}", 
+        _logger.LogDebug("Retrieved usage for {Provider}: {Requests} requests, ${Cost:F4}",
             provider, usage.RequestCount, usage.TotalCost);
 
         return await Task.FromResult(usage);
@@ -95,7 +93,7 @@ public class UsageTracker : IUsageTracker
             for (var date = startDate; date <= endDate; date = date.AddDays(1))
             {
                 var key = GetDailyKey(provider, date);
-                
+
                 if (_usageData.TryGetValue(key, out var records) && records.Any())
                 {
                     var cost = records.Sum(r => r.Cost);
@@ -103,11 +101,11 @@ public class UsageTracker : IUsageTracker
                     var tokens = records.Sum(r => r.TokenCount);
 
                     dailyUsageList.Add(new DailyUsage(
-                        Provider: provider,
-                        Date: date.ToString("yyyy-MM-dd"),
-                        RequestCount: requests,
-                        TokensUsed: tokens,
-                        TotalCost: cost
+                        provider,
+                        date.ToString("yyyy-MM-dd"),
+                        requests,
+                        tokens,
+                        cost
                     ));
 
                     totalCost += cost;
@@ -117,11 +115,11 @@ public class UsageTracker : IUsageTracker
                 {
                     // Add empty day
                     dailyUsageList.Add(new DailyUsage(
-                        Provider: provider,
-                        Date: date.ToString("yyyy-MM-dd"),
-                        RequestCount: 0,
-                        TokensUsed: 0,
-                        TotalCost: 0m
+                        provider,
+                        date.ToString("yyyy-MM-dd"),
+                        0,
+                        0,
+                        0m
                     ));
                 }
             }
@@ -130,14 +128,14 @@ public class UsageTracker : IUsageTracker
         }
 
         var report = new WeeklyReport(
-            StartDate: startDate,
-            EndDate: endDate,
-            ProviderUsage: providerUsage,
-            TotalCost: totalCost,
-            TotalRequests: totalRequests
+            startDate,
+            endDate,
+            providerUsage,
+            totalCost,
+            totalRequests
         );
 
-        _logger.LogInformation("Generated weekly report: {Requests} requests, ${Cost:F4} total cost", 
+        _logger.LogInformation("Generated weekly report: {Requests} requests, ${Cost:F4} total cost",
             totalRequests, totalCost);
 
         return await Task.FromResult(report);
@@ -149,13 +147,14 @@ public class UsageTracker : IUsageTracker
         {
             var usage = await GetTodayUsageAsync(provider);
             var projectedCost = usage.TotalCost + additionalCost;
-            
+
             var dailyBudgetLimit = GetDailyBudgetLimit(provider);
-            
+
             var withinBudget = projectedCost <= dailyBudgetLimit;
-            
-            _logger.LogDebug("Budget check for {Provider}: ${Current:F4} + ${Additional:F4} = ${Projected:F4} (Limit: ${Limit:F4}) - {Result}", 
-                provider, usage.TotalCost, additionalCost, projectedCost, dailyBudgetLimit, 
+
+            _logger.LogDebug(
+                "Budget check for {Provider}: ${Current:F4} + ${Additional:F4} = ${Projected:F4} (Limit: ${Limit:F4}) - {Result}",
+                provider, usage.TotalCost, additionalCost, projectedCost, dailyBudgetLimit,
                 withinBudget ? "Within Budget" : "Exceeds Budget");
 
             return withinBudget;
@@ -170,24 +169,29 @@ public class UsageTracker : IUsageTracker
     private decimal GetDailyBudgetLimit(string provider)
     {
         var normalizedName = provider.ToLowerInvariant();
-        
-        if (_config.ProviderLimits.TryGetValue(normalizedName, out var limitConfig))
-        {
-            return limitConfig.DailyBudgetLimit;
-        }
 
-        _logger.LogWarning("No daily budget limit configuration found for provider {Provider}, defaulting to $1.00", provider);
+        if (_config.ProviderLimits.TryGetValue(normalizedName, out var limitConfig))
+            return limitConfig.DailyBudgetLimit;
+
+        _logger.LogWarning("No daily budget limit configuration found for provider {Provider}, defaulting to $1.00",
+            provider);
         return 1.0m; // Default fallback
     }
 
-    private static string GetDailyKey(string providerName, DateTime date) =>
-        $"{providerName}:{date:yyyy-MM-dd}";
+    private static string GetDailyKey(string providerName, DateTime date)
+    {
+        return $"{providerName}:{date:yyyy-MM-dd}";
+    }
 
-    private static string ExtractProviderName(string key) =>
-        key.Split(':')[0];
+    private static string ExtractProviderName(string key)
+    {
+        return key.Split(':')[0];
+    }
 
-    private static DateTime ExtractDate(string key) =>
-        DateTime.ParseExact(key.Split(':')[1], "yyyy-MM-dd", null);
+    private static DateTime ExtractDate(string key)
+    {
+        return DateTime.ParseExact(key.Split(':')[1], "yyyy-MM-dd", null);
+    }
 
     private record UsageRecord(DateTime Timestamp, int TokenCount, decimal Cost);
 }

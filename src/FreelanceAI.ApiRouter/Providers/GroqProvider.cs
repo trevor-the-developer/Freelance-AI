@@ -1,4 +1,4 @@
-using System.Linq;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FreelanceAI.Core.Constants;
@@ -11,33 +11,33 @@ namespace FreelanceAI.ApiRouter.Providers;
 
 public class GroqProvider : IAIProvider
 {
-    private readonly HttpClient _httpClient;
     private readonly string _apiKey;
-    private readonly ILogger<GroqProvider> _logger;
     private readonly IConfiguration _config;
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<GroqProvider> _logger;
+    private readonly int MaxTokens;
 
-    public string Name => "Groq";
-    public int Priority => 1; // Highest priority (fastest, free)
-    public decimal CostPerToken => 0.0m; // Free tier
-    public bool IsAvailable { get; private set; } = true;
+    private readonly string Model;
 
-    private string Model;
-    private int MaxTokens; 
-    
     public GroqProvider(HttpClient httpClient, IConfiguration config, ILogger<GroqProvider> logger)
     {
         _httpClient = httpClient;
         _apiKey = config["Groq:ApiKey"] ?? throw new InvalidOperationException("Groq API key not configured");
         _logger = logger;
         _config = config;
-        
+
         Model = config["Groq:Model"] ?? GroqConstants.Model;
-        MaxTokens = config.GetValue<int>("Groq:MaxTokens", GroqConstants.MaxTokens);
-        
+        MaxTokens = config.GetValue("Groq:MaxTokens", GroqConstants.MaxTokens);
+
         _httpClient.BaseAddress = new Uri(config["Groq:BaseUrl"] ?? GroqConstants.BaseUrl);
         _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
         _httpClient.Timeout = TimeSpan.FromMinutes(2);
     }
+
+    public string Name => "Groq";
+    public int Priority => 1; // Highest priority (fastest, free)
+    public decimal CostPerToken => 0.0m; // Free tier
+    public bool IsAvailable { get; private set; } = true;
 
     public async Task<string> GenerateAsync(string prompt, AIRequestOptions options)
     {
@@ -59,25 +59,23 @@ public class GroqProvider : IAIProvider
             _logger.LogDebug("Sending request to Groq with model: {Model}", request.model);
 
             var response = await _httpClient.PostAsJsonAsync("chat/completions", request);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Groq API returned error {StatusCode}: {Error}", 
+                _logger.LogError("Groq API returned error {StatusCode}: {Error}",
                     response.StatusCode, errorContent);
-                
+
                 // Mark as unavailable for certain error types
-                if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
-                    response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                {
+                if (response.StatusCode == HttpStatusCode.ServiceUnavailable ||
+                    response.StatusCode == HttpStatusCode.TooManyRequests)
                     IsAvailable = false;
-                }
-                
+
                 throw new HttpRequestException($"Groq API error: {response.StatusCode} - {errorContent}");
             }
 
             var content = await response.Content.ReadAsStringAsync();
-            
+
             if (string.IsNullOrEmpty(content))
             {
                 _logger.LogError("Groq API returned empty response");
@@ -88,7 +86,7 @@ public class GroqProvider : IAIProvider
             {
                 PropertyNameCaseInsensitive = true
             });
-            
+
             if (result?.Choices == null || !result.Choices.Any())
             {
                 _logger.LogError("Groq API response missing choices: {Content}", content);
@@ -96,7 +94,7 @@ public class GroqProvider : IAIProvider
             }
 
             var generatedText = result.Choices.FirstOrDefault()?.Message?.Content;
-            
+
             if (string.IsNullOrEmpty(generatedText))
             {
                 _logger.LogError("Groq API returned empty generated text");
@@ -104,7 +102,7 @@ public class GroqProvider : IAIProvider
             }
 
             _logger.LogDebug("Received response from Groq: {Length} characters", generatedText.Length);
-            
+
             return generatedText;
         }
         catch (HttpRequestException ex)
@@ -145,7 +143,7 @@ public class GroqProvider : IAIProvider
         try
         {
             _logger.LogDebug("Checking Groq API health");
-            
+
             // Use a lighter endpoint or a simple test request
             var testRequest = new
             {
@@ -160,7 +158,7 @@ public class GroqProvider : IAIProvider
 
             var response = await _httpClient.PostAsJsonAsync("chat/completions", testRequest);
             IsAvailable = response.IsSuccessStatusCode;
-            
+
             if (IsAvailable)
             {
                 _logger.LogDebug("Groq API health check passed");
@@ -168,10 +166,10 @@ public class GroqProvider : IAIProvider
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("Groq API health check failed with status: {StatusCode}, Error: {Error}", 
+                _logger.LogWarning("Groq API health check failed with status: {StatusCode}, Error: {Error}",
                     response.StatusCode, errorContent);
             }
-            
+
             return IsAvailable;
         }
         catch (TaskCanceledException ex)
@@ -188,13 +186,17 @@ public class GroqProvider : IAIProvider
         }
     }
 
-    private static string GetSystemPrompt() => 
-        "You are an expert software developer specializing in C#, JavaScript, and web technologies. " +
-        "Provide clean, production-ready code with clear explanations. " +
-        "Focus on best practices, performance, and maintainability.";
+    private static string GetSystemPrompt()
+    {
+        return "You are an expert software developer specializing in C#, JavaScript, and web technologies. " +
+               "Provide clean, production-ready code with clear explanations. " +
+               "Focus on best practices, performance, and maintainability.";
+    }
 
     // Positional records (constructor-based)
     private record GroqResponse(Choice[]? Choices);
+
     private record Choice(Message? Message);
+
     private record Message(string? Content);
 }

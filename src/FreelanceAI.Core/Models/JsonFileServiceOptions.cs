@@ -20,7 +20,6 @@ public record JsonFileServiceOptions
 
             // Handle expressions like "5 * 1024 * 1024"
             if (MaxFileSizeInBytes.Contains("*"))
-            {
                 try
                 {
                     var expression = MaxFileSizeInBytes.Replace(" ", "");
@@ -31,7 +30,6 @@ public record JsonFileServiceOptions
                 {
                     return 10 * 1024 * 1024; // Fallback to default
                 }
-            }
 
             // Handle plain numbers
             return long.TryParse(MaxFileSizeInBytes, out var size) ? size : 10 * 1024 * 1024;
@@ -45,15 +43,15 @@ public record JsonFileServiceOptions
             if (string.IsNullOrWhiteSpace(MaxFileAge))
                 return TimeSpan.FromDays(7); // Default
 
-            return double.TryParse(MaxFileAge, out var days) 
-                ? TimeSpan.FromDays(days) 
+            return double.TryParse(MaxFileAge, out var days)
+                ? TimeSpan.FromDays(days)
                 : TimeSpan.FromDays(7);
         }
     }
 
     // Keep the JsonOptions for internal use
-    public JsonSerializerOptions JsonOptions { get; init; } = new JsonSerializerOptions 
-    { 
+    public JsonSerializerOptions JsonOptions { get; init; } = new()
+    {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };

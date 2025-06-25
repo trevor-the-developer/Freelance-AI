@@ -9,5 +9,7 @@ public record GenerateRequest(
 )
 {
     // Parameterless constructor for model binding
-    public GenerateRequest() : this("") { }
+    public GenerateRequest() : this("")
+    {
+    }
 }
