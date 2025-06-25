@@ -10,11 +10,16 @@ public class AIController : ControllerBase
 {
     private readonly ISmartApiRouter _router;
     private readonly ILogger<AIController> _logger;
+    private readonly IJsonFileService _fileService;
 
-    public AIController(ISmartApiRouter router, ILogger<AIController> logger)
+    public AIController(
+        ISmartApiRouter router, 
+        ILogger<AIController> logger,
+        IJsonFileService fileService)
     {
         _router = router;
         _logger = logger;
+        _fileService = fileService;
     }
 
     [HttpPost("generate")]
@@ -28,8 +33,10 @@ public class AIController : ControllerBase
             }
 
             var options = BuildAIRequestOptions(request);
-
             var response = await _router.RouteRequestAsync(request.Prompt, options);
+            
+            // Log the response to file
+            await LogResponseToFile(request, response);
             
             LogBasedOnResponseType(response);
             
@@ -106,6 +113,38 @@ public class AIController : ControllerBase
         }
     }
 
+    // New endpoint to get response history
+    [HttpGet("history")]
+    public async Task<ActionResult<AIResponseHistory>> GetResponseHistoryAsync()
+    {
+        try
+        {
+            var history = await _fileService.LoadAsync<AIResponseHistory>();
+            return Ok(history ?? new AIResponseHistory());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading response history");
+            return StatusCode(500, new { error = "Failed to load response history" });
+        }
+    }
+
+    // New endpoint to force file rollover
+    [HttpPost("rollover")]
+    public async Task<ActionResult> ForceRolloverAsync()
+    {
+        try
+        {
+            await _fileService.ForceRolloverAsync();
+            return Ok(new { message = "File rollover completed successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during forced rollover");
+            return StatusCode(500, new { error = "Failed to rollover file" });
+        }
+    }
+
     private ActionResult ServiceUnavailable(object value) =>
         StatusCode(503, value);
     
@@ -157,5 +196,48 @@ public class AIController : ControllerBase
                 error = "Unknown response type" 
             })
         };
+    }
+
+    private async Task LogResponseToFile(GenerateRequest request, AIResponse response)
+    {
+        try
+        {
+            // Load existing history or create new
+            var history = await _fileService.LoadAsync<AIResponseHistory>() ?? new AIResponseHistory();
+
+            // Add new entry
+            var entry = new AIResponseEntry(
+                Id: Guid.NewGuid(),
+                Timestamp: DateTime.UtcNow,
+                Prompt: request.Prompt,
+                MaxTokens: request.MaxTokens,
+                Temperature: request.Temperature,
+                Model: request.Model,
+                Success: response is AISuccess,
+                Provider: response is AISuccess success ? success.Provider : null,
+                Content: response is AISuccess successContent ? successContent.Content : null,
+                Error: response is AIFailure failure ? failure.Error : null,
+                Cost: response is AISuccess successCost ? successCost.RequestCost : 0,
+                Duration: response.Duration.TotalMilliseconds
+            );
+
+            // Create new history with updated values
+            var updatedResponses = new List<AIResponseEntry>(history.Responses) { entry };
+            var updatedHistory = history with
+            {
+                Responses = updatedResponses,
+                LastUpdated = DateTime.UtcNow,
+                TotalRequests = updatedResponses.Count,
+                TotalCost = updatedResponses.Sum(r => r.Cost)
+            };
+
+            // Save back to file
+            await _fileService.WriteAsync(updatedHistory);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log response to file");
+            // Don't throw - this is non-critical functionality
+        }
     }
 }

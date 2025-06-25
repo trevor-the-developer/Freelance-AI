@@ -1,9 +1,9 @@
+using System.Collections.Concurrent;
 using FreelanceAI.Core.Interfaces;
 using FreelanceAI.Core.Models;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 
-namespace FreelanceAI.ApiRouter.Services;
+namespace FreelanceAI.Core.Services;
 
 public class UsageTracker : IUsageTracker
 {

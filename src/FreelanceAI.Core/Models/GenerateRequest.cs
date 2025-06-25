@@ -6,4 +6,8 @@ public record GenerateRequest(
     decimal? Temperature = null,
     string? Model = null,
     List<string>? StopSequences = null
-);
+)
+{
+    // Parameterless constructor for model binding
+    public GenerateRequest() : this("") { }
+}

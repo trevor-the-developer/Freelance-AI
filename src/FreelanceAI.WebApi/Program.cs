@@ -1,8 +1,11 @@
 using FreelanceAI.ApiRouter;
 using FreelanceAI.ApiRouter.Providers;
-using FreelanceAI.ApiRouter.Services;
 using FreelanceAI.Core.Configuration;
 using FreelanceAI.Core.Interfaces;
+using FreelanceAI.Core.Models;
+using FreelanceAI.Core.Services;
+using FreelanceAI.Core.Validators;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +17,13 @@ builder.Services.AddSwaggerGen();
 // Configure options
 builder.Services.Configure<RouterConfiguration>(
     builder.Configuration.GetSection("Router"));
+builder.Services.Configure<JsonFileServiceOptions>(
+    builder.Configuration.GetSection("JsonFileServiceOptions"));
+builder.Services.AddSingleton<IValidateOptions<JsonFileServiceOptions>, 
+    JsonFileServiceOptionsValidator>();
+
+// Register the JsonFileService
+builder.Services.AddSingleton<IJsonFileService, JsonFileService>();
 
 // Register HttpClient for providers
 builder.Services.AddHttpClient<GroqProvider>();
