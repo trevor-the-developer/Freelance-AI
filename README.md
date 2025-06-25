@@ -1,22 +1,21 @@
 # FreelanceAI - Smart AI Router for Development Work
 
-> **TL;DR**: A lightweight, intelligent AI routing system that automatically selects the best AI provider (Groq, Ollama)
-> for your development tasks. Features a CLI interface for instant code generation, debugging, and explanations with cost
-> tracking and fallback capabilities.
+> **TL;DR**: A production-ready, intelligent AI routing system that automatically selects the best AI provider (Groq, Ollama)
+> for your development tasks. Features a comprehensive REST API, CLI interface, cost optimisation, and enterprise-grade
+> monitoring with automatic failover capabilities.
 
 ## 🎯 **What is FreelanceAI?**
 
-FreelanceAI is a **foundational AI development assistant** designed to provide a **Warp Terminal-like experience** for
-.NET, frontend, and documentation development. This is our **lightweight MVP** that we'll expand into a full agentic
-workflow system.
+FreelanceAI is a **smart AI request routing service** built with .NET 8 that intelligently routes AI requests to the best available provider based on health, cost, rate limits, and performance. It provides a robust foundation for AI-powered development workflows with enterprise-grade reliability.
 
 ### **Core Vision**
 
-- 🚀 **Instant AI assistance** through CLI and API
-- 🧠 **Smart provider routing** with automatic fallbacks
-- 💰 **Cost optimization** and usage tracking
-- 🔧 **Developer-focused** responses with production-ready code
-- 🏗️ **Extensible foundation** for future agentic workflows
+- 🚀 **Intelligent request routing** with automatic provider failover
+- 🧠 **Smart provider selection** based on health, cost, and performance
+- 💰 **Advanced cost optimisation** and real-time usage tracking
+- 🔧 **Developer-focused** API with comprehensive monitoring
+- 🏗️ **Production-ready architecture** with extensible provider system
+- 📊 **Enterprise monitoring** with detailed analytics and reporting
 
 ---
 
@@ -106,7 +105,7 @@ code           # Generate code
 review         # Code review
 suggest        # Get suggestions
 debug          # Debug assistance
-optimize       # Optimization tips
+optimise       # Optimisation tips
 test           # Testing guidance
 explain        # Explain concepts/commands
 ```
@@ -114,10 +113,21 @@ explain        # Explain concepts/commands
 ### **API Endpoints**
 
 ```http
-GET  /api/ai/status     # Provider status
-GET  /api/ai/spend      # Today's costs
-POST /api/ai/generate   # AI generation
-POST /api/ai/health     # System health
+# Core AI Operations
+POST /api/ai/generate   # AI content generation with smart routing
+GET  /api/ai/status     # Provider status and availability
+GET  /api/ai/spend      # Today's total costs across all providers
+POST /api/ai/health     # Detailed system health check
+
+# Response Management
+GET  /api/ai/history    # Request/response history and analytics
+POST /api/ai/rollover   # Force log file rollover
+
+# System Health
+GET  /health           # Basic health endpoint
+
+# Interactive Documentation
+GET  /swagger          # Swagger UI for API testing
 ```
 
 ---
@@ -128,18 +138,44 @@ POST /api/ai/health     # System health
 
 ```
 src/
-├── FreelanceAI.Core/          # Domain models & interfaces
-│   ├── Models/                # Request/response models
-│   ├── Interfaces/            # Provider & service contracts
-│   ├── Configuration/         # Router configuration
-│   └── Constants/             # Provider constants
-├── FreelanceAI.ApiRouter/     # Core routing logic
-│   ├── SmartApiRouter.cs      # Main routing engine
-│   ├── Providers/             # AI provider implementations
-│   └── Services/              # Usage tracking
-└── FreelanceAI.WebApi/        # HTTP API layer
-    ├── Controllers/           # REST endpoints
-    └── Program.cs             # DI configuration
+├── FreelanceAI.Core/              # Domain models & interfaces
+│   ├── Models/                    # Request/response models
+│   │   ├── JsonFileServiceOptions.cs
+│   │   ├── GenerateRequest.cs
+│   │   ├── AIResponse.cs
+│   │   ├── ProviderStatus.cs
+│   │   └── HealthResponse.cs
+│   ├── Interfaces/                # Provider & service contracts
+│   │   ├── IAIProvider.cs
+│   │   ├── ISmartApiRouter.cs
+│   │   ├── IUsageTracker.cs
+│   │   └── IJsonFileService.cs
+│   ├── Configuration/             # Router configuration
+│   │   ├── RouterConfiguration.cs
+│   │   └── ProviderLimitConfiguration.cs
+│   ├── Services/                  # Core services
+│   │   ├── JsonFileService.cs
+│   │   └── UsageTracker.cs
+│   └── Constants/                 # Provider constants
+│       ├── GroqConstants.cs
+│       └── OllamaConstants.cs
+├── FreelanceAI.ApiRouter/         # Core routing logic
+│   ├── SmartApiRouter.cs          # Main routing engine
+│   └── Providers/                 # AI provider implementations
+│       ├── GroqProvider.cs
+│       └── OllamaProvider.cs
+└── FreelanceAI.WebApi/            # HTTP API layer
+    ├── Controllers/               # REST endpoints
+    │   └── AIController.cs
+    ├── Program.cs                 # DI configuration
+    └── appsettings.json           # Configuration
+
+# Documentation & Testing
+├── API_TESTING_GUIDE.md           # Comprehensive testing guide
+├── CODE_REVIEW_AND_IMPROVEMENTS.md # Code analysis and suggestions
+├── test-api.sh                    # Automated test script
+└── scripts/                       # CLI utilities
+    └── freelance-ai               # CLI interface
 ```
 
 ### **Core Components**
@@ -229,8 +265,8 @@ export Router__DailyBudget="10.0"
 # Debug specific error
 ./scripts/freelance-ai debug "NullReferenceException in UserService.GetUser()"
 
-# Performance optimization
-./scripts/freelance-ai optimize "slow LINQ query with multiple joins"
+# Performance optimisation
+./scripts/freelance-ai optimise "slow LINQ query with multiple joins"
 ```
 
 ### **Learning & Explanation**
@@ -257,27 +293,76 @@ export Router__DailyBudget="10.0"
 
 ## 🧪 **Testing**
 
-### **Manual Testing**
+### **Quick Testing**
 
 ```bash
 # 1. Start the API
 dotnet run --project src/FreelanceAI.WebApi
 
-# 2. Test health endpoint
+# 2. Run comprehensive test suite
+./test-api.sh
+
+# 3. Test individual endpoints
 curl http://localhost:5000/health
-
-# 3. Test provider status
 curl http://localhost:5000/api/ai/status
-
-# 4. Test AI generation
 curl -X POST http://localhost:5000/api/ai/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Hello world in C#", "maxTokens": 100}'
 
-# 5. Test CLI commands
+# 3.1 Testing history endpoint
+# Ensure you have generated a response (see above)
+curl http://localhost:5000/api/ai/history
+
+# This will display the stored local history if enabled in the `"JsonFileServiceOptions":` configuration section:
+"Enabled": "true"
+
+# Example output:
+   {
+      "id": "e1aefbcd-8e1f-40e3-8225-b1d5ada894df",
+      "timestamp": "2025-06-26T07:19:18.8631974Z",
+      "prompt": "Please explain the following command or concept in simple terms for a developer: ls",
+      "maxTokens": 500,
+      "temperature": 0.7,
+      "model": null,
+      "success": true,
+      "provider": "Groq",
+      "content": "**What is \u0060ls\u0060?**\n\n\u0060ls\u0060 is a basic command in Linux and Unix-like operating systems that stands for \u0022list\u0022. It is used to display a list of files and directories in the current working directory.\n\n**How does it work?**\n\nWhen you run the \u0060ls\u0060 command, it displays the following information:\n\n* A list of files and directories in the current directory\n* The names of the files and directories\n* The type of each item (file or directory)\n\n**Common uses of \u0060ls\u0060**\n\n* To view the contents of the current directory\n* To check if a file or directory exists\n* To get a list of files and directories to use in other commands\n\n**Basic \u0060ls\u0060 command options**\n\n* \u0060ls -a\u0060 : Displays all files and directories, including hidden ones (those that start with a dot \u0060.\u0060)\n* \u0060ls -l\u0060 : Displays a detailed list of files and directories, including permissions, ownership, and timestamps\n* \u0060ls -d\u0060 : Displays only the names of directories\n\n**Example usage**\n\n\u0060\u0060\u0060bash\n# Display the contents of the current directory\nls\n\n# Display all files and directories, including hidden ones\nls -a\n\n# Display a detailed list of files and directories\nls -l\n\u0060\u0060\u0060\n\n**Tips for developers**\n\n* Use \u0060ls\u0060 to quickly check the contents of a directory before running other commands\n* Use \u0060ls -l\u0060 to get detailed information about files and directories, such as permissions and ownership\n* Use \u0060ls -a\u0060 to include hidden files and directories in the list",
+      "error": null,
+      "cost": 0.0000372,
+      "duration": 2209.2682
+    }
+  ],
+  "lastUpdated": "2025-06-26T07:19:18.8634939Z",
+  "totalRequests": 9,
+  "totalCost": 0.0003158
+```
+
+# 4. Test CLI commands
 ./scripts/freelance-ai status
 ./scripts/freelance-ai code "simple hello world method"
 ```
+
+### **Comprehensive Testing**
+
+```bash
+# Interactive API testing
+open http://localhost:5000/swagger
+
+# Load testing
+ab -n 100 -c 10 -p test-data.json -T application/json http://localhost:5000/api/ai/generate
+
+# Test different scenarios (see API_TESTING_GUIDE.md)
+# - Empty prompt validation
+# - Rate limiting behavior
+# - Provider failover
+# - Cost tracking accuracy
+```
+
+### **Testing Documentation**
+
+- **API_TESTING_GUIDE.md** - Comprehensive testing scenarios and examples
+- **test-api.sh** - Automated test script for all endpoints
+- **current_state_roadmap.md** - Current development state and future roadmap
 
 ### **Expected Results**
 
@@ -356,21 +441,47 @@ curl http://localhost:5000/api/ai/spend
 
 ---
 
+## 🌟 **Enhanced Features**
+
+### **Production-Ready Features**
+
+- **Smart Request Routing** - Intelligent provider selection based on health, cost, and performance
+- **Comprehensive API** - Full REST API with Swagger documentation
+- **Response History** - Complete request/response tracking with analytics
+- **Cost Optimisation** - Real-time cost tracking and budget management
+- **Health Monitoring** - Detailed provider health checks and system status
+- **File Management** - Automatic log rotation and backup capabilities
+- **Configuration Management** - Flexible JSON-based configuration with hot reload support
+- **Enterprise Logging** - Structured logging with multiple output formats
+
+### **Advanced Monitoring**
+
+- **Provider Analytics** - Real-time provider performance metrics
+- **Usage Tracking** - Detailed usage patterns and cost analysis
+- **Health Dashboards** - System health monitoring and alerting
+- **Response Analytics** - Request/response history with filtering and search
+
 ## 🔮 **Future Roadmap**
 
 ### **Phase 1: Foundation** ✅
 
-- [x] Smart AI routing
-- [x] CLI interface
-- [x] Basic cost tracking
-- [x] Provider fallbacks
+- [x] Smart AI routing with priority-based selection
+- [x] CLI interface with multiple commands
+- [x] Advanced cost tracking and budget management
+- [x] Provider fallbacks with health monitoring
+- [x] REST API with comprehensive endpoints
+- [x] Response history and analytics
+- [x] Swagger documentation and testing
+- [x] Production-ready logging and monitoring
 
 ### **Phase 2: Enhancement** 🚧
 
+- [x] Comprehensive test suite and documentation
+- [ ] Request caching and deduplication
+- [ ] Circuit breaker patterns
+- [ ] Advanced metrics collection
 - [ ] Web UI dashboard
-- [ ] Advanced analytics
 - [ ] Custom provider plugins
-- [ ] Response caching
 
 ### **Phase 3: Agentic Workflows** 🔮
 
@@ -386,7 +497,7 @@ curl http://localhost:5000/api/ai/spend
 - [ ] Code repository analysis
 - [ ] Intelligent refactoring suggestions
 - [ ] Automated testing generation
-- [ ] Performance optimization recommendations
+- [ ] Performance optimisation recommendations
 - [ ] Security vulnerability detection
 
 ---
