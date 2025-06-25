@@ -8,6 +8,7 @@ public record JsonFileServiceOptions
     public string MaxFileSizeInBytes { get; init; } = "10485760"; // 10MB as string for JSON config
     public string MaxFileAge { get; init; } = "7"; // Days as string for JSON config
     public string RolloverDirectory { get; init; } = "archived";
+    public bool Enabled { get; init; } = false; // disabled by default
 
     // Computed properties that handle the string conversion
     public long MaxFileSizeBytesValue

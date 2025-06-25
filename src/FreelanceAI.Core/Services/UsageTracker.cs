@@ -1,18 +1,22 @@
 using System.Collections.Concurrent;
+using FreelanceAI.Core.Configuration;
 using FreelanceAI.Core.Interfaces;
 using FreelanceAI.Core.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace FreelanceAI.Core.Services;
 
 public class UsageTracker : IUsageTracker
 {
     private readonly ILogger<UsageTracker> _logger;
+    private readonly RouterConfiguration _config;
     private readonly ConcurrentDictionary<string, List<UsageRecord>> _usageData;
 
-    public UsageTracker(ILogger<UsageTracker> logger)
+    public UsageTracker(ILogger<UsageTracker> logger, IOptions<RouterConfiguration> config)
     {
         _logger = logger;
+        _config = config.Value;
         _usageData = new ConcurrentDictionary<string, List<UsageRecord>>();
     }
 
@@ -146,7 +150,6 @@ public class UsageTracker : IUsageTracker
             var usage = await GetTodayUsageAsync(provider);
             var projectedCost = usage.TotalCost + additionalCost;
             
-            // Simple daily budget check - you might want to make this configurable
             var dailyBudgetLimit = GetDailyBudgetLimit(provider);
             
             var withinBudget = projectedCost <= dailyBudgetLimit;
@@ -164,14 +167,18 @@ public class UsageTracker : IUsageTracker
         }
     }
 
-    private static decimal GetDailyBudgetLimit(string provider) => provider.ToLower() switch
+    private decimal GetDailyBudgetLimit(string provider)
     {
-        "groq" => 0m,      // Free tier
-        "together" => 5.0m, // $5 daily limit
-        "huggingface" => 1.0m, // $1 daily limit
-        "ollama" => 0m,    // Local, no cost
-        _ => 1.0m          // Default $1 limit
-    };
+        var normalizedName = provider.ToLowerInvariant();
+        
+        if (_config.ProviderLimits.TryGetValue(normalizedName, out var limitConfig))
+        {
+            return limitConfig.DailyBudgetLimit;
+        }
+
+        _logger.LogWarning("No daily budget limit configuration found for provider {Provider}, defaulting to $1.00", provider);
+        return 1.0m; // Default fallback
+    }
 
     private static string GetDailyKey(string providerName, DateTime date) =>
         $"{providerName}:{date:yyyy-MM-dd}";
