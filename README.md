@@ -1,12 +1,21 @@
 # FreelanceAI - Smart AI Router for Development Work
 
 > **TL;DR**: A production-ready, intelligent AI routing system that automatically selects the best AI provider (Groq, Ollama)
-> for your development tasks. Features a comprehensive REST API, CLI interface, cost optimisation, and enterprise-grade
+> for your development tasks. Features a comprehensive REST API, CLI interface, cost optimization, and enterprise-grade
 > monitoring with automatic failover capabilities.
 
 ## 🎯 **What is FreelanceAI?**
 
-FreelanceAI is a **smart AI request routing service** built with .NET 8 that intelligently routes AI requests to the best available provider based on health, cost, rate limits, and performance. It provides a robust foundation for AI-powered development workflows with enterprise-grade reliability.
+FreelanceAI is a **smart AI request routing service** built with .NET 9 that intelligently routes AI requests to the best available provider based on health, cost, rate limits, and performance. It provides a robust foundation for AI-powered development workflows with enterprise-grade reliability.
+
+### **🆕 Latest Updates (December 2025)**
+
+- ✅ **Upgraded to .NET 9** for latest performance improvements
+- ✅ **Comprehensive Testing Suite** with 65 tests covering unit, integration, and end-to-end scenarios
+- ✅ **Enhanced Documentation** with architectural analysis and testing guides
+- ✅ **Production Deployment Ready** with Docker support and monitoring
+- ✅ **Advanced Analytics** with response history tracking and cost analysis
+- ✅ **Code Quality** with automated testing and FluentAssertions for robust validation
 
 ### **Core Vision**
 
@@ -25,7 +34,7 @@ FreelanceAI is a **smart AI request routing service** built with .NET 8 that int
 
 ```bash
 # Required
-- .NET 8.0 SDK
+- .NET 9.0 SDK
 - Groq API key (free tier available)
 
 # Optional
@@ -363,6 +372,43 @@ ab -n 100 -c 10 -p test-data.json -T application/json http://localhost:5000/api/
 - **API_TESTING_GUIDE.md** - Comprehensive testing scenarios and examples
 - **test-api.sh** - Automated test script for all endpoints
 - **current_state_roadmap.md** - Current development state and future roadmap
+- **SOLUTION_ARCHITECTURE_ANALYSIS.md** - Deep architectural analysis and design patterns
+- **CODE_REVIEW_AND_IMPROVEMENTS.md** - Code quality analysis and improvement suggestions
+- **PROJECT_DEVELOPMENT_SUMMARY.md** - Complete development summary and documentation
+
+### **Test Architecture**
+
+```
+tests/
+├── FreelanceAI.Core.Tests/        # Unit tests for core business logic
+│   ├── Configuration/             # Configuration validation tests
+│   ├── Models/                    # Model validation and behavior tests
+│   └── Helpers/                   # Test utilities and helpers
+├── FreelanceAI.ApiRouter.Tests/   # Integration tests for routing logic
+│   └── SmartApiRouterTests.cs     # Router behavior and provider tests
+└── FreelanceAI.Integration.Tests/ # End-to-end API tests
+    ├── ApiIntegrationTests.cs     # Full request flow testing
+    ├── IntegrationTestBase.cs     # Test base class and setup
+    └── appsettings.Test.json       # Test configuration
+```
+
+### **Running Tests**
+
+```bash
+# Run all tests (65 total tests across all projects)
+dotnet test
+
+# Run specific test project
+dotnet test tests/FreelanceAI.Core.Tests/         # Core business logic tests
+dotnet test tests/FreelanceAI.ApiRouter.Tests/   # API router integration tests
+dotnet test tests/FreelanceAI.Integration.Tests/ # End-to-end API tests
+
+# Run tests with coverage
+dotnet test --collect:"XPlat Code Coverage"
+
+# Run with detailed output
+dotnet test --verbosity detailed
+```
 
 ### **Expected Results**
 
@@ -403,7 +449,7 @@ docker-compose ps
 ### **Dockerfile**
 
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 COPY . .
 EXPOSE 5000

@@ -1,8 +1,7 @@
 using FluentAssertions;
-using FreelanceAI.Core.Configuration;
-using System.ComponentModel.DataAnnotations;
 using FluentAssertions.Execution;
-using FluentAssertions.Primitives;
+using FreelanceAI.Core.Configuration;
+using FreelanceAI.Core.Tests.Assertions;
 using FreelanceAI.Core.Tests.TestData;
 using Xunit;
 
@@ -55,7 +54,8 @@ public class RouterConfigurationTests
     #region Daily Budget Tests
 
     [Theory]
-    [MemberData(nameof(RouterConfigurationTestData.ValidBudgetValues), MemberType = typeof(RouterConfigurationTestData))]
+    [MemberData(nameof(RouterConfigurationTestData.ValidBudgetValues),
+        MemberType = typeof(RouterConfigurationTestData))]
     public void DailyBudget_WithValidValues_ShouldBeAcceptedAndPassValidation(decimal budget)
     {
         // Act
@@ -68,7 +68,8 @@ public class RouterConfigurationTests
     }
 
     [Theory]
-    [MemberData(nameof(RouterConfigurationTestData.InvalidBudgetValues), MemberType = typeof(RouterConfigurationTestData))]
+    [MemberData(nameof(RouterConfigurationTestData.InvalidBudgetValues),
+        MemberType = typeof(RouterConfigurationTestData))]
     public void DailyBudget_WithNegativeValues_ShouldFailValidation(decimal budget)
     {
         // Act
@@ -96,7 +97,8 @@ public class RouterConfigurationTests
     }
 
     [Theory]
-    [MemberData(nameof(RouterConfigurationTestData.InvalidRetryValues), MemberType = typeof(RouterConfigurationTestData))]
+    [MemberData(nameof(RouterConfigurationTestData.InvalidRetryValues),
+        MemberType = typeof(RouterConfigurationTestData))]
     public void MaxRetries_WithInvalidValues_ShouldFailValidation(int retries)
     {
         // Act
@@ -150,7 +152,7 @@ public class RouterConfigurationTests
         // Assert
         using var _ = new AssertionScope();
         updatedConfig.ProviderLimits.Should().HaveCount(3);
-        updatedConfig.ProviderLimits.Keys.Should().BeEquivalentTo(["groq", "openai", "anthropic"]);
+        updatedConfig.ProviderLimits.Keys.Should().BeEquivalentTo("groq", "openai", "anthropic");
     }
 
     #endregion
@@ -194,10 +196,10 @@ public class RouterConfigurationTests
         const int newRetries = 5;
 
         // Act
-        var updatedConfig = originalConfig with 
-        { 
-            DailyBudget = newBudget, 
-            MaxRetries = newRetries 
+        var updatedConfig = originalConfig with
+        {
+            DailyBudget = newBudget,
+            MaxRetries = newRetries
         };
 
         // Assert
@@ -215,7 +217,7 @@ public class RouterConfigurationTests
         // Arrange
         var originalLimits = CreateProviderLimitsDict();
         var originalConfig = new RouterConfiguration { ProviderLimits = originalLimits };
-        
+
         var newLimits = new Dictionary<string, ProviderLimitConfiguration>
         {
             ["new-provider"] = ValidProviderLimit
@@ -258,31 +260,3 @@ public class RouterConfigurationTests
 
     #endregion
 }
-
-#region Custom Assertions
-
-public static class RouterConfigurationAssertions
-{
-    public static AndConstraint<ObjectAssertions> BeValidConfiguration(
-        this ObjectAssertions assertions)
-    {
-        return assertions.Match(config => ValidateConfiguration(config),
-            "configuration should pass validation");
-    }
-
-    public static AndConstraint<ObjectAssertions> BeInvalidConfiguration(
-        this ObjectAssertions assertions)
-    {
-        return assertions.Match(config => !ValidateConfiguration(config),
-            "configuration should fail validation");
-    }
-
-    private static bool ValidateConfiguration(object config)
-    {
-        var context = new ValidationContext(config);
-        var results = new List<ValidationResult>();
-        return Validator.TryValidateObject(config, context, results, validateAllProperties: true);
-    }
-}
-
-#endregion

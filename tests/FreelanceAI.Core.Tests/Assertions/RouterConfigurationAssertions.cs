@@ -24,6 +24,6 @@ public static class RouterConfigurationAssertions
     {
         var context = new ValidationContext(config);
         var results = new List<ValidationResult>();
-        return Validator.TryValidateObject(config, context, results, validateAllProperties: true);
+        return Validator.TryValidateObject(config, context, results, true);
     }
 }
