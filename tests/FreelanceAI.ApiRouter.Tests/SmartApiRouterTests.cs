@@ -245,10 +245,10 @@ public class SmartApiRouterTests
     }
 
     [Theory]
-    [InlineData("", "Prompt is required")]
-    [InlineData("   ", "Prompt is required")]
-    [InlineData(null, "Prompt is required")]
-    public async Task RouteRequestAsync_WithInvalidPrompt_ShouldValidateInput(string? prompt, string expectedError)
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public async Task RouteRequestAsync_WithInvalidPrompt_ShouldValidateInput(string? prompt)
     {
         // Arrange
         var provider = TestHelpers.CreateMockProvider("TestProvider", isHealthy: true);
