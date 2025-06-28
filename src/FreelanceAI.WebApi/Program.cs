@@ -61,3 +61,6 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
 app.Run();
+
+// Make Program class accessible for integration tests
+public partial class Program { }
