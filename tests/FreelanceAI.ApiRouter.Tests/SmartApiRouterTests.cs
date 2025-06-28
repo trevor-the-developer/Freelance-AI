@@ -32,7 +32,12 @@ public class SmartApiRouterTests
             EnableCostTracking = true,
             ProviderLimits = new Dictionary<string, ProviderLimitConfiguration>
             {
-                ["testprovider"] = new() { RequestLimit = 100, LimitType = "Day", CostPerToken = 0.0001m }
+                ["testprovider"] = new() { RequestLimit = 100, LimitType = "Day", CostPerToken = 0.0001m },
+                ["highpriority"] = new() { RequestLimit = 100, LimitType = "Day", CostPerToken = 0.0001m },
+                ["lowpriority"] = new() { RequestLimit = 100, LimitType = "Day", CostPerToken = 0.0001m },
+                ["workingprovider"] = new() { RequestLimit = 100, LimitType = "Day", CostPerToken = 0.0001m },
+                ["failingprovider"] = new() { RequestLimit = 100, LimitType = "Day", CostPerToken = 0.0001m },
+                ["throwingprovider"] = new() { RequestLimit = 100, LimitType = "Day", CostPerToken = 0.0001m }
             }
         });
 

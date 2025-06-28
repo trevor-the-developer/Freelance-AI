@@ -83,8 +83,8 @@ public class ApiIntegrationTests : IntegrationTestBase
     public async Task GenerateEndpoint_WithValidRequest_ShouldReturnSuccess()
     {
         // Arrange
-        SetupGroqMockResponse("This is a test response from Groq");
         SetupHealthCheckMocks(groqHealthy: true);
+        SetupGroqMockResponse("test response");
 
         var requestPayload = CreateTestRequest("Generate a hello world function");
         var json = JsonSerializer.Serialize(requestPayload, JsonOptions);

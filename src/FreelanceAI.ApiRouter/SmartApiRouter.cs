@@ -33,6 +33,8 @@ public class SmartApiRouter : ISmartApiRouter
 
     public async Task<AIResponse> RouteRequestAsync(string prompt, AIRequestOptions options)
     {
+        ArgumentNullException.ThrowIfNull(prompt);
+        
         var context = new RequestContext(prompt, options, DateTime.UtcNow);
         var routingResult = new RoutingResult();
 
@@ -295,12 +297,18 @@ public class SmartApiRouter : ISmartApiRouter
 
     private static int EstimateTokens(string text)
     {
+        if (string.IsNullOrEmpty(text))
+            return 0;
+            
         return (int)Math.Ceiling(text.Length / 4.0);
         // Rough estimation
     }
 
     private static decimal EstimateCost(string text, decimal costPerToken)
     {
+        if (string.IsNullOrEmpty(text))
+            return 0;
+            
         return EstimateTokens(text) * costPerToken / 1000;
     }
 }

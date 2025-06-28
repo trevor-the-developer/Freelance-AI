@@ -110,22 +110,30 @@ public class RouterConfigurationTests
     public void RecordEquality_WithSameValues_ShouldBeEqual()
     {
         // Arrange
+        var providerLimits = new Dictionary<string, ProviderLimitConfiguration>
+        {
+            ["groq"] = new() { RequestLimit = 100, LimitType = "Day", CostPerToken = 0.0001m }
+        };
+        
         var config1 = new RouterConfiguration
         {
             DailyBudget = 10.0m,
             MaxRetries = 3,
-            EnableCostTracking = true
+            EnableCostTracking = true,
+            ProviderLimits = providerLimits
         };
 
         var config2 = new RouterConfiguration
         {
             DailyBudget = 10.0m,
             MaxRetries = 3,
-            EnableCostTracking = true
+            EnableCostTracking = true,
+            ProviderLimits = providerLimits  // Same reference
         };
 
         // Act & Assert
-        config1.Should().Be(config2);
+        config1.Equals(config2).Should().BeTrue();
+        (config1 == config2).Should().BeTrue();
         config1.GetHashCode().Should().Be(config2.GetHashCode());
     }
 

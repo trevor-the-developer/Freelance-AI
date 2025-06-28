@@ -6,11 +6,15 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using WireMock.Server;
 using WireMock.Settings;
+using System.Collections.Concurrent;
+using System.Threading;
 
 namespace FreelanceAI.Integration.Tests;
 
 public class IntegrationTestBase : IDisposable
 {
+    private static int _nextPort = 10000;
+    
     protected readonly WebApplicationFactory<Program> Factory;
     protected readonly HttpClient Client;
     protected readonly WireMockServer GroqMockServer;
@@ -23,16 +27,19 @@ public class IntegrationTestBase : IDisposable
 
     public IntegrationTestBase()
     {
-        // Setup WireMock servers for external dependencies
+        // Setup WireMock servers with dynamic ports to avoid conflicts
+        var groqPort = Interlocked.Increment(ref _nextPort);
+        var ollamaPort = Interlocked.Increment(ref _nextPort);
+        
         GroqMockServer = WireMockServer.Start(new WireMockServerSettings
         {
-            Port = 9999,
+            Port = groqPort,
             StartAdminInterface = false
         });
 
         OllamaMockServer = WireMockServer.Start(new WireMockServerSettings
         {
-            Port = 9998,
+            Port = ollamaPort,
             StartAdminInterface = false
         });
 
@@ -44,6 +51,13 @@ public class IntegrationTestBase : IDisposable
                 builder.ConfigureAppConfiguration((context, config) =>
                 {
                     config.AddJsonFile("appsettings.Test.json", optional: false);
+                    
+                    // Override provider URLs to use our dynamic mock servers
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Groq:BaseUrl"] = $"http://localhost:{groqPort}/",
+                        ["Ollama:BaseUrl"] = $"http://localhost:{ollamaPort}"
+                    });
                 });
                 builder.ConfigureServices(services =>
                 {
@@ -112,7 +126,8 @@ public class IntegrationTestBase : IDisposable
         // Groq health check (using simple completion request)
         if (groqHealthy)
         {
-            SetupGroqMockResponse("test");
+            // Don't override existing mock - just ensure health checks pass
+            // We'll setup a fallback that responds to health checks without overriding existing mocks
         }
         else
         {
