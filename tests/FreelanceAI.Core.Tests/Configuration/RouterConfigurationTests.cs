@@ -1,172 +1,288 @@
 using FluentAssertions;
 using FreelanceAI.Core.Configuration;
 using System.ComponentModel.DataAnnotations;
+using FluentAssertions.Execution;
+using FluentAssertions.Primitives;
+using FreelanceAI.Core.Tests.TestData;
 using Xunit;
 
 namespace FreelanceAI.Core.Tests.Configuration;
 
 public class RouterConfigurationTests
 {
-    [Fact]
-    public void DefaultValues_ShouldBeValid()
+    #region Test Data
+
+    private static readonly ProviderLimitConfiguration ValidProviderLimit = new()
     {
-        // Arrange & Act
+        RequestLimit = 100,
+        LimitType = "Hour",
+        CostPerToken = 0.0001m,
+        DailyBudgetLimit = 5.0m
+    };
+
+    #endregion
+
+    #region Default Values Tests
+
+    [Fact]
+    public void DefaultConfiguration_ShouldHaveExpectedValues()
+    {
+        // Act
         var config = new RouterConfiguration();
 
         // Assert
+        using var _ = new AssertionScope();
         config.DailyBudget.Should().Be(10.0m);
         config.MaxRetries.Should().Be(3);
         config.HealthCheckInterval.Should().Be(TimeSpan.FromMinutes(5));
         config.EnableCostTracking.Should().BeTrue();
         config.EnableRateLimiting.Should().BeTrue();
-        config.ProviderLimits.Should().NotBeNull();
-        config.ProviderLimits.Should().BeEmpty();
-    }
-
-    [Theory]
-    [InlineData(0.0)]
-    [InlineData(5.0)]
-    [InlineData(100.0)]
-    [InlineData(1000.0)]
-    public void DailyBudget_WithValidValues_ShouldBeAccepted(decimal budget)
-    {
-        // Arrange & Act
-        var config = new RouterConfiguration { DailyBudget = budget };
-
-        // Assert
-        config.DailyBudget.Should().Be(budget);
-        ValidateConfiguration(config).Should().BeTrue();
-    }
-
-    [Theory]
-    [InlineData(-1.0)]
-    [InlineData(-100.0)]
-    public void DailyBudget_WithNegativeValues_ShouldFailValidation(decimal budget)
-    {
-        // Arrange & Act
-        var config = new RouterConfiguration { DailyBudget = budget };
-
-        // Assert
-        ValidateConfiguration(config).Should().BeFalse();
-    }
-
-    [Theory]
-    [InlineData(1)]
-    [InlineData(3)]
-    [InlineData(5)]
-    [InlineData(10)]
-    public void MaxRetries_WithValidValues_ShouldBeAccepted(int retries)
-    {
-        // Arrange & Act
-        var config = new RouterConfiguration { MaxRetries = retries };
-
-        // Assert
-        config.MaxRetries.Should().Be(retries);
-        ValidateConfiguration(config).Should().BeTrue();
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(11)]
-    [InlineData(100)]
-    public void MaxRetries_WithInvalidValues_ShouldFailValidation(int retries)
-    {
-        // Arrange & Act
-        var config = new RouterConfiguration { MaxRetries = retries };
-
-        // Assert
-        ValidateConfiguration(config).Should().BeFalse();
+        config.ProviderLimits.Should().NotBeNull().And.BeEmpty();
     }
 
     [Fact]
-    public void ProviderLimits_WhenAdded_ShouldBeAccessible()
+    public void DefaultConfiguration_ShouldPassValidation()
     {
         // Arrange
         var config = new RouterConfiguration();
-        var providerLimit = new ProviderLimitConfiguration
-        {
-            RequestLimit = 100,
-            LimitType = "Hour",
-            CostPerToken = 0.0001m,
-            DailyBudgetLimit = 5.0m
-        };
+
+        // Act & Assert
+        config.Should().BeValidConfiguration();
+    }
+
+    #endregion
+
+    #region Daily Budget Tests
+
+    [Theory]
+    [MemberData(nameof(RouterConfigurationTestData.ValidBudgetValues), MemberType = typeof(RouterConfigurationTestData))]
+    public void DailyBudget_WithValidValues_ShouldBeAcceptedAndPassValidation(decimal budget)
+    {
+        // Act
+        var config = new RouterConfiguration { DailyBudget = budget };
+
+        // Assert
+        using var _ = new AssertionScope();
+        config.DailyBudget.Should().Be(budget);
+        config.Should().BeValidConfiguration();
+    }
+
+    [Theory]
+    [MemberData(nameof(RouterConfigurationTestData.InvalidBudgetValues), MemberType = typeof(RouterConfigurationTestData))]
+    public void DailyBudget_WithNegativeValues_ShouldFailValidation(decimal budget)
+    {
+        // Act
+        var config = new RouterConfiguration { DailyBudget = budget };
+
+        // Assert
+        config.Should().BeInvalidConfiguration();
+    }
+
+    #endregion
+
+    #region Max Retries Tests
+
+    [Theory]
+    [MemberData(nameof(RouterConfigurationTestData.ValidRetryValues), MemberType = typeof(RouterConfigurationTestData))]
+    public void MaxRetries_WithValidValues_ShouldBeAcceptedAndPassValidation(int retries)
+    {
+        // Act
+        var config = new RouterConfiguration { MaxRetries = retries };
+
+        // Assert
+        using var _ = new AssertionScope();
+        config.MaxRetries.Should().Be(retries);
+        config.Should().BeValidConfiguration();
+    }
+
+    [Theory]
+    [MemberData(nameof(RouterConfigurationTestData.InvalidRetryValues), MemberType = typeof(RouterConfigurationTestData))]
+    public void MaxRetries_WithInvalidValues_ShouldFailValidation(int retries)
+    {
+        // Act
+        var config = new RouterConfiguration { MaxRetries = retries };
+
+        // Assert
+        config.Should().BeInvalidConfiguration();
+    }
+
+    #endregion
+
+    #region Provider Limits Tests
+
+    [Fact]
+    public void ProviderLimits_WhenProviderAdded_ShouldBeAccessible()
+    {
+        // Arrange
+        var config = new RouterConfiguration();
+        const string providerName = "groq";
 
         // Act
-        var newConfig = config with
+        var updatedConfig = config with
         {
             ProviderLimits = new Dictionary<string, ProviderLimitConfiguration>
             {
-                ["groq"] = providerLimit
+                [providerName] = ValidProviderLimit
             }
         };
 
         // Assert
-        newConfig.ProviderLimits.Should().ContainKey("groq");
-        newConfig.ProviderLimits["groq"].Should().Be(providerLimit);
+        using var _ = new AssertionScope();
+        updatedConfig.ProviderLimits.Should().ContainKey(providerName);
+        updatedConfig.ProviderLimits[providerName].Should().BeEquivalentTo(ValidProviderLimit);
     }
 
     [Fact]
-    public void RecordEquality_WithSameValues_ShouldBeEqual()
+    public void ProviderLimits_WithMultipleProviders_ShouldMaintainAllEntries()
     {
         // Arrange
+        var config = new RouterConfiguration();
         var providerLimits = new Dictionary<string, ProviderLimitConfiguration>
         {
-            ["groq"] = new() { RequestLimit = 100, LimitType = "Day", CostPerToken = 0.0001m }
-        };
-        
-        var config1 = new RouterConfiguration
-        {
-            DailyBudget = 10.0m,
-            MaxRetries = 3,
-            EnableCostTracking = true,
-            ProviderLimits = providerLimits
+            ["groq"] = ValidProviderLimit,
+            ["openai"] = ValidProviderLimit with { CostPerToken = 0.0002m },
+            ["anthropic"] = ValidProviderLimit with { RequestLimit = 50 }
         };
 
-        var config2 = new RouterConfiguration
-        {
-            DailyBudget = 10.0m,
-            MaxRetries = 3,
-            EnableCostTracking = true,
-            ProviderLimits = providerLimits  // Same reference
-        };
+        // Act
+        var updatedConfig = config with { ProviderLimits = providerLimits };
 
-        // Act & Assert
-        config1.Equals(config2).Should().BeTrue();
+        // Assert
+        using var _ = new AssertionScope();
+        updatedConfig.ProviderLimits.Should().HaveCount(3);
+        updatedConfig.ProviderLimits.Keys.Should().BeEquivalentTo(["groq", "openai", "anthropic"]);
+    }
+
+    #endregion
+
+    #region Record Behavior Tests
+
+    [Fact]
+    public void RecordEquality_WithIdenticalConfigurations_ShouldBeEqual()
+    {
+        // Arrange
+        var providerLimits = CreateProviderLimitsDict();
+        var config1 = CreateTestConfiguration(providerLimits);
+        var config2 = CreateTestConfiguration(providerLimits);
+
+        // Assert
+        using var _ = new AssertionScope();
+        config1.Should().Be(config2);
         (config1 == config2).Should().BeTrue();
         config1.GetHashCode().Should().Be(config2.GetHashCode());
     }
 
     [Fact]
-    public void RecordEquality_WithDifferentValues_ShouldNotBeEqual()
+    public void RecordEquality_WithDifferentBudgets_ShouldNotBeEqual()
     {
         // Arrange
         var config1 = new RouterConfiguration { DailyBudget = 10.0m };
         var config2 = new RouterConfiguration { DailyBudget = 20.0m };
 
-        // Act & Assert
+        // Assert
+        using var _ = new AssertionScope();
         config1.Should().NotBe(config2);
+        (config1 == config2).Should().BeFalse();
     }
 
     [Fact]
-    public void WithExpression_ShouldCreateNewInstance()
+    public void WithExpression_ShouldCreateNewInstanceWithUpdatedValues()
     {
         // Arrange
-        var originalConfig = new RouterConfiguration { DailyBudget = 10.0m };
+        var originalConfig = new RouterConfiguration { DailyBudget = 10.0m, MaxRetries = 3 };
+        const decimal newBudget = 20.0m;
+        const int newRetries = 5;
 
         // Act
-        var newConfig = originalConfig with { DailyBudget = 20.0m };
+        var updatedConfig = originalConfig with 
+        { 
+            DailyBudget = newBudget, 
+            MaxRetries = newRetries 
+        };
 
         // Assert
+        using var _ = new AssertionScope();
         originalConfig.DailyBudget.Should().Be(10.0m);
-        newConfig.DailyBudget.Should().Be(20.0m);
-        newConfig.Should().NotBeSameAs(originalConfig);
+        originalConfig.MaxRetries.Should().Be(3);
+        updatedConfig.DailyBudget.Should().Be(newBudget);
+        updatedConfig.MaxRetries.Should().Be(newRetries);
+        updatedConfig.Should().NotBeSameAs(originalConfig);
     }
 
-    private static bool ValidateConfiguration(RouterConfiguration config)
+    [Fact]
+    public void WithExpression_ModifyingProviderLimits_ShouldNotAffectOriginal()
+    {
+        // Arrange
+        var originalLimits = CreateProviderLimitsDict();
+        var originalConfig = new RouterConfiguration { ProviderLimits = originalLimits };
+        
+        var newLimits = new Dictionary<string, ProviderLimitConfiguration>
+        {
+            ["new-provider"] = ValidProviderLimit
+        };
+
+        // Act
+        var updatedConfig = originalConfig with { ProviderLimits = newLimits };
+
+        // Assert
+        using var _ = new AssertionScope();
+        originalConfig.ProviderLimits.Should().ContainKey("groq");
+        originalConfig.ProviderLimits.Should().NotContainKey("new-provider");
+        updatedConfig.ProviderLimits.Should().ContainKey("new-provider");
+        updatedConfig.ProviderLimits.Should().NotContainKey("groq");
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private static Dictionary<string, ProviderLimitConfiguration> CreateProviderLimitsDict()
+    {
+        return new Dictionary<string, ProviderLimitConfiguration>
+        {
+            ["groq"] = ValidProviderLimit
+        };
+    }
+
+    private static RouterConfiguration CreateTestConfiguration(
+        Dictionary<string, ProviderLimitConfiguration>? providerLimits = null)
+    {
+        return new RouterConfiguration
+        {
+            DailyBudget = 10.0m,
+            MaxRetries = 3,
+            EnableCostTracking = true,
+            ProviderLimits = providerLimits ?? new Dictionary<string, ProviderLimitConfiguration>()
+        };
+    }
+
+    #endregion
+}
+
+#region Custom Assertions
+
+public static class RouterConfigurationAssertions
+{
+    public static AndConstraint<ObjectAssertions> BeValidConfiguration(
+        this ObjectAssertions assertions)
+    {
+        return assertions.Match(config => ValidateConfiguration(config),
+            "configuration should pass validation");
+    }
+
+    public static AndConstraint<ObjectAssertions> BeInvalidConfiguration(
+        this ObjectAssertions assertions)
+    {
+        return assertions.Match(config => !ValidateConfiguration(config),
+            "configuration should fail validation");
+    }
+
+    private static bool ValidateConfiguration(object config)
     {
         var context = new ValidationContext(config);
         var results = new List<ValidationResult>();
-        return Validator.TryValidateObject(config, context, results, true);
+        return Validator.TryValidateObject(config, context, results, validateAllProperties: true);
     }
 }
+
+#endregion
