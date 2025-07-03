@@ -446,6 +446,158 @@ ai_chat() {
 }
 
 # ========================================
+# ENHANCED BOOTSTRAP INTEGRATION FUNCTIONS
+# ========================================
+
+# Function to check FreelanceAI health (for integration)
+check_freelance_ai_health() {
+    if curl -s "http://localhost:5000/health" > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to show FreelanceAI status for integration
+show_freelance_ai_status() {
+    echo -e "${YELLOW}🔍 Checking FreelanceAI status...${NC}"
+    
+    if check_freelance_ai_health; then
+        echo -e "${GREEN}✅ FreelanceAI API is running${NC}"
+        
+        # Get provider status
+        local provider_status=$(call_api_get "ai/status")
+        if [ $? -eq 0 ] && [ -n "$provider_status" ]; then
+            echo -e "${BLUE}📊 Provider Status:${NC}"
+            echo "$provider_status" | jq -r '.[] | "  \(.name): \(if .isHealthy then "✅ Healthy" else "❌ Unhealthy" end) - \(.requestsToday) requests today"' 2>/dev/null || echo "$provider_status"
+        fi
+        
+        # Get today's spend
+        local spend=$(curl -s "http://localhost:5000/api/ai/spend" 2>/dev/null)
+        if [ $? -eq 0 ] && [ -n "$spend" ] && [ "$spend" != "Not Found" ]; then
+            echo -e "${CYAN}💰 Today's spend: \$${spend}${NC}"
+        fi
+    else
+        echo -e "${RED}❌ FreelanceAI API is not running${NC}"
+        echo "Start with: dotnet run --project src/FreelanceAI.WebApi"
+        return 1
+    fi
+}
+
+# Function to format prompts for bootstrap integration
+format_prompt_for_subcommand() {
+    local subcommand=$1
+    local prompt=$2
+    
+    case $subcommand in
+        "explain")
+            echo "Please explain the following command or concept in simple terms for a developer: $prompt"
+            ;;
+        "suggest")
+            echo "Suggest practical solutions or commands for this task: $prompt"
+            ;;
+        "debug")
+            echo "Help debug this issue and provide troubleshooting steps: $prompt"
+            ;;
+        "code")
+            echo "Generate clean, production-ready code for: $prompt"
+            ;;
+        "review")
+            echo "Review this code and suggest improvements: $prompt"
+            ;;
+        "optimise"|"optimize")
+            echo "Optimise this code or process: $prompt"
+            ;;
+        "test")
+            echo "Provide testing strategies and examples for: $prompt"
+            ;;
+        *)
+            echo "$prompt"
+            ;;
+    esac
+}
+
+# Function to handle AI commands for bootstrap integration
+handle_ai_commands_for_bootstrap() {
+    local args=("$@")
+    
+    if [ ${#args[@]} -eq 0 ]; then
+        echo "AI command requires subcommand:"
+        echo "  ai explain <command>     - Explain a command or concept"
+        echo "  ai suggest <task>        - Get suggestions for a task"
+        echo "  ai debug <error>         - Debug help for errors"
+        echo "  ai code <task>          - Generate code"
+        echo "  ai review <code>        - Review code"
+        echo "  ai optimise <task>      - Optimisation suggestions"
+        echo "  ai test <task>          - Testing guidance"
+        return 1
+    fi
+    
+    local subcommand=${args[0]}
+    local prompt="${args[*]:1}"
+    
+    if [ -z "$prompt" ]; then
+        echo -e "${RED}❌ Please provide a prompt for 'ai $subcommand'${NC}"
+        return 1
+    fi
+    
+    echo -e "${YELLOW}🤖 AI $subcommand: $prompt${NC}"
+    
+    # Check if FreelanceAI is available
+    if ! check_freelance_ai_health; then
+        echo -e "${RED}🔧 FreelanceAI API not available${NC}"
+        echo "Please start FreelanceAI with: dotnet run --project src/FreelanceAI.WebApi"
+        return 1
+    fi
+    
+    # Format prompt for subcommand
+    local formatted_prompt=$(format_prompt_for_subcommand "$subcommand" "$prompt")
+    local data=$(create_ai_request "$formatted_prompt" 500 0.7)
+    
+    local response=$(call_api "ai/generate" "$data")
+    if [ $? -eq 0 ]; then
+        format_ai_response "$response"
+    else
+        echo -e "${RED}❌ Failed to get AI response${NC}"
+        return 1
+    fi
+}
+
+# Function to check dependencies for bootstrap integration
+check_integration_dependencies() {
+    local missing_deps=()
+    
+    # Check required tools
+    if ! command -v curl &> /dev/null; then
+        missing_deps+=("curl")
+    fi
+    
+    if ! command -v jq &> /dev/null; then
+        missing_deps+=("jq")
+    fi
+    
+    if ! command -v dotnet &> /dev/null; then
+        missing_deps+=("dotnet")
+    fi
+    
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        echo -e "${RED}❌ Missing dependencies: ${missing_deps[*]}${NC}"
+        echo "Install them with:"
+        for dep in "${missing_deps[@]}"; do
+            case $dep in
+                "curl") echo "  sudo apt install curl" ;;
+                "jq") echo "  sudo apt install jq" ;;
+                "dotnet") echo "  Install .NET 9.0 SDK from https://dotnet.microsoft.com/download" ;;
+            esac
+        done
+        return 1
+    else
+        echo -e "${GREEN}✅ All dependencies are installed${NC}"
+        return 0
+    fi
+}
+
+# ========================================
 # HELP AND USAGE FUNCTIONS
 # ========================================
 
